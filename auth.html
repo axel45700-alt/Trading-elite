@@ -16,109 +16,105 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const form = document.getElementById('signupForm');
-const errorMsg = document.getElementById('errorMsg');
-const successMsg = document.getElementById('successMsg');
-const submitBtn = document.getElementById('submitBtn');
+const form = document.getElementById("signupForm");
+const errorMsg = document.getElementById("errorMsg");
+const successMsg = document.getElementById("successMsg");
+const submitBtn = document.getElementById("submitBtn");
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    const nom = document.getElementById('nom').value.trim();
-    const prenom = document.getElementById('prenom').value.trim();
-    const telephone = document.getElementById('telephone').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
+  const nom = document.getElementById("nom").value.trim();
+  const prenom = document.getElementById("prenom").value.trim();
+  const telephone = document.getElementById("telephone").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
-    if (password.length < 6) {
-        showError('Le mot de passe doit avoir au moins 6 caractères');
-        return;
-    }
+  if (password.length < 6) {
+    showError("Le mot de passe doit avoir au moins 6 caractères");
+    return;
+  }
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Création en cours...';
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Création en cours...";
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    await addDoc(collection(db, "users"), {
+      uid: user.uid,
+      nom: nom,
+      prenom: prenom,
+      telephone: telephone,
+      email: email,
+      dateCreation: serverTimestamp(),
+      semaineGratuite: true,
+      dateSemaineGratuite: new Date(),
+      abonne: false,
+      dateAbonn: null
+    });
 
     try {
-        // 🔥 FIREBASE AUTH
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        // 🔥 FIRESTORE
-        await addDoc(collection(db, 'users'), {
-            uid: user.uid,
-            nom: nom,
-            prenom: prenom,
-            telephone: telephone,
-            email: email,
-            dateCreation: serverTimestamp(),
-            semaineGratuite: true,
-            dateSemaineGratuite: new Date(),
-            abonne: false,
-            dateAbonn: null
-        });
-
-        // 🔥 GOOGLE SHEETS (SAFE)
-        try {
-            await fetch("https://script.google.com/macros/s/AKfycbwNK45jFlnHDssr-7AVCQHPiQnc22bxYV7DZx10UZRtnRZmUFBP4RCYocDGg0jmKRw/exec", {
-                method: "POST",
-                mode: "no-cors",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8"
-                },
-                body: JSON.stringify({
-                    nom: `${prenom} ${nom}`,
-                    telephone: telephone,
-                    dateCreation: formatDate(),
-                    semaineGratuite: "Oui",
-                    aPayer: "Non"
-                })
-            });
-        } catch (sheetError) {
-            console.error("Erreur Google Sheets :", sheetError);
-        }
-
-        showSuccess('Compte créé avec succès ! Redirection...');
-
-        setTimeout(() => {
-            window.location.href = 'account.html';
-        }, 2000);
-
-    } catch (error) {
-        console.error("Erreur complète :", error);
-
-        let message = 'Une erreur est survenue';
-
-        if (error.code === 'auth/email-already-in-use') {
-            message = 'Cet email est déjà utilisé';
-        } else if (error.code === 'auth/invalid-email') {
-            message = 'Email invalide';
-        } else if (error.code === 'auth/weak-password') {
-            message = 'Le mot de passe est trop faible';
-        }
-
-        showError(message);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Créer mon compte';
+      await fetch("https://script.google.com/macros/s/AKfycbwNK45jFlnHDssr-7AVCQHPiQnc22bxYV7DZx10UZRtnRZmUFBP4RCYocDGg0jmKRw/exec", {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+          nom: `${prenom} ${nom}`,
+          telephone: telephone,
+          dateCreation: formatDate(),
+          semaineGratuite: "Oui",
+          aPayer: "Non"
+        })
+      });
+    } catch (sheetError) {
+      console.error("Erreur Google Sheets :", sheetError);
     }
+
+    showSuccess("Compte créé avec succès ! Redirection...");
+    setTimeout(() => {
+      window.location.href = "account.html";
+    }, 2000);
+
+  } catch (error) {
+    console.error("Erreur complète :", error);
+
+    let message = "Une erreur est survenue";
+
+    if (error.code === "auth/email-already-in-use") {
+      message = "Cet email est déjà utilisé";
+    } else if (error.code === "auth/invalid-email") {
+      message = "Email invalide";
+    } else if (error.code === "auth/weak-password") {
+      message = "Le mot de passe est trop faible";
+    }
+
+    showError(message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Créer mon compte";
+  }
 });
 
 function showError(msg) {
-    errorMsg.textContent = msg;
-    errorMsg.style.display = 'block';
-    successMsg.style.display = 'none';
+  errorMsg.textContent = msg;
+  errorMsg.style.display = "block";
+  successMsg.style.display = "none";
 }
 
 function showSuccess(msg) {
-    successMsg.textContent = msg;
-    successMsg.style.display = 'block';
-    errorMsg.style.display = 'none';
+  successMsg.textContent = msg;
+  successMsg.style.display = "block";
+  errorMsg.style.display = "none";
 }
 
 function formatDate() {
-    const date = new Date();
-    const jj = String(date.getDate()).padStart(2, "0");
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const aaaa = date.getFullYear();
-    return `${jj}/${mm}/${aaaa}`;
+  const date = new Date();
+  const jj = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const aaaa = date.getFullYear();
+  return `${jj}/${mm}/${aaaa}`;
 }
 </script>
