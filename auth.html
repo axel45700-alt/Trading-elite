@@ -191,6 +191,11 @@
                 <input type="password" id="password" placeholder="Min 6 caractères" required>
             </div>
 
+            <div class="form-group">
+                <label for="parrain">Parrain (optionnel)</label>
+                <input type="text" id="parrain" placeholder="Numéro de ton parrain">
+            </div>
+
             <button type="submit" class="btn btn-primary" id="submitBtn">
                 Créer mon compte
             </button>
@@ -225,6 +230,17 @@ const errorMsg = document.getElementById("errorMsg");
 const successMsg = document.getElementById("successMsg");
 const submitBtn = document.getElementById("submitBtn");
 
+function generateUserNumber() {
+    return Math.floor(100000 + Math.random() * 900000);
+}
+
+function formatDate(date = new Date()) {
+    const jour = String(date.getDate()).padStart(2, '0');
+    const mois = String(date.getMonth() + 1).padStart(2, '0');
+    const annee = date.getFullYear();
+    return `${jour}/${mois}/${annee}`;
+}
+
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -233,6 +249,7 @@ form.addEventListener("submit", async (e) => {
     const telephone = document.getElementById("telephone").value.trim();
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
+    const parrain = document.getElementById("parrain").value.trim() || null;
 
     if (password.length < 6) {
         showError("Le mot de passe doit avoir au moins 6 caractères");
@@ -245,6 +262,7 @@ form.addEventListener("submit", async (e) => {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        const userNumber = generateUserNumber();
 
         await addDoc(collection(db, "users"), {
             uid: user.uid,
@@ -252,6 +270,8 @@ form.addEventListener("submit", async (e) => {
             prenom: prenom,
             telephone: telephone,
             email: email,
+            userNumber: userNumber,
+            parrain: parrain,
             dateCreation: serverTimestamp(),
             semaineGratuite: true,
             dateSemaineGratuite: new Date(),
@@ -260,7 +280,8 @@ form.addEventListener("submit", async (e) => {
         });
 
         try {
-            await fetch("https://script.google.com/macros/s/AKfycbwjGU7gyUQ1smtvzvIcZVwaSrVcttIvde6OiFGAxitVRy2TGXHNeYly33GKpjQw6Dlu/exec", {
+            const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycby2X0iepOymPEemL4xzimIL-N50A3mTY5z8OjRDT06-iZToE0hwsCYE-rgbYGXIga0Z/exec"; // À remplacer après déploiement du script
+            await fetch(GOOGLE_SHEET_URL, {
                 method: "POST",
                 mode: "no-cors",
                 headers: {
@@ -268,10 +289,10 @@ form.addEventListener("submit", async (e) => {
                 },
                 body: JSON.stringify({
                     nom: prenom + " " + nom,
-                    telephone: telephone,
-                    dateCreation: formatDate(),
+                    numero: userNumber,
+                    dateEntree: formatDate(),
                     semaineGratuite: "Oui",
-                    aPayer: "Non"
+                    invitePar: parrain || ""
                 })
             });
         } catch (sheetError) {
@@ -312,14 +333,6 @@ function showSuccess(msg) {
     successMsg.textContent = msg;
     successMsg.style.display = "block";
     errorMsg.style.display = "none";
-}
-
-function formatDate() {
-    const date = new Date();
-    const jj = String(date.getDate()).padStart(2, "0");
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const aaaa = date.getFullYear();
-    return jj + "/" + mm + "/" + aaaa;
 }
 </script>
 
