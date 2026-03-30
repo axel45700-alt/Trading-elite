@@ -63,7 +63,7 @@ form.addEventListener("submit", async (e) => {
           "Content-Type": "text/plain;charset=utf-8"
         },
         body: JSON.stringify({
-          nom: `${prenom} ${nom}`,
+          nom: prenom + " " + nom,
           telephone: telephone,
           dateCreation: formatDate(),
           semaineGratuite: "Oui",
@@ -115,6 +115,9 @@ function formatDate() {
   const jj = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const aaaa = date.getFullYear();
-  return `${jj}/${mm}/${aaaa}`;
+  return jj + "/" + mm + "/" + aaaa;
 }
 </script>
+
+</body>
+</html>
