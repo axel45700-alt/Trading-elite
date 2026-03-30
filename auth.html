@@ -274,6 +274,22 @@ form.addEventListener('submit', async (e) => {
             dateAbonn: null
         });
 
+// 🔥 ENVOI VERS GOOGLE SHEETS
+await fetch("https://script.google.com/macros/s/AKfycbwNK45jFlnHDssr-7AVCQHPiQnc22bxYV7DZx10UZRtnRZmUFBP4RCYocDGg0jmKRw/exec", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        nom: `${prenom} ${nom}`,
+        telephone: telephone,
+        dateCreation: formatDate(),
+        semaineGratuite: "Oui",
+        aPayer: "Non"
+    })
+});
+
+
         showSuccess('Compte créé avec succès ! Redirection...');
         setTimeout(() => {
             window.location.href = 'account.html';
@@ -304,6 +320,15 @@ function showSuccess(msg) {
     successMsg.style.display = 'block';
     errorMsg.style.display = 'none';
 }
+
+function formatDate() {
+    const date = new Date();
+    const jj = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const aaaa = date.getFullYear();
+    return `${jj}/${mm}/${aaaa}`;
+}
+
 </script>
 
 </body>
