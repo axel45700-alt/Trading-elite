@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutoriels — Trading Elite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0a1a;
+            --gold: #e2b93b;
+            --text: #ffffff;
+            --text-muted: #8888aa;
+            --border: #2a2a4a;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        nav {
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .logo { font-size: 1.4rem; font-weight: 900; }
+        .logo span { color: var(--gold); }
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--gold); }
+
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .content::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(226,185,59,0.06) 0%, transparent 60%);
+        }
+        .icon {
+            font-size: 5rem;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(226,185,59,0.15);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.4rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 900;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        h1 span { color: var(--gold); }
+        p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 500px;
+            line-height: 1.6;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+        .back-btn {
+            display: inline-block;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.8rem 2rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .back-btn:hover {
+            background: var(--gold);
+            color: #000;
+        }
+        .coming-soon-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+        .item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">TRADING <span>ELITE</span></div>
+    <a href="index.html">← Retour au site</a>
+</nav>
+
+<div class="content">
+    <div class="icon">🎓</div>
+    <div class="badge">Bientôt disponible</div>
+    <h1>Les <span>tutoriels</span><br>arrivent</h1>
+    <p>On prépare des guides complets pour t'aider à démarrer et progresser rapidement en trading.</p>
+
+    <div class="coming-soon-items">
+        <div class="item">📱 Créer un compte broker</div>
+        <div class="item">📊 Lancer ton premier trade</div>
+        <div class="item">🥇 Trader le Gold (XAUUSD)</div>
+        <div class="item">⚙️ Configurer MetaTrader 5</div>
+        <div class="item">🛡️ Gérer son risque</div>
+        <div class="item">📈 Lire un graphique</div>
+    </div>
+
+    <a href="index.html" class="back-btn">Retourner à l'accueil</a>
+</div>
+
+<footer>
+    <p>© 2026 Trading Elite — Tous droits réservés</p>
+</footer>
+
+</body>
+</html>
