@@ -42,6 +42,11 @@
             text-align: center;
             margin-bottom: 2rem;
         }
+        .logo-link {
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
         .logo-text {
             font-size: 1.3rem;
             font-weight: 900;
@@ -155,8 +160,10 @@
 <div class="container">
     <div class="card">
         <div class="logo-section">
-            <div class="logo-text">TRADING <span>ELITE</span></div>
-            <div class="logo-subtitle">Groupe Privé VIP</div>
+            <a href="index.html" class="logo-link">
+                <div class="logo-text">TRADING <span>ELITE</span></div>
+                <div class="logo-subtitle">Groupe Privé VIP</div>
+            </a>
         </div>
 
         <h1>Crée ton compte</h1>
@@ -279,25 +286,25 @@ form.addEventListener("submit", async (e) => {
             dateAbonn: null
         });
 
-        try {
-            const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwitu4s2yYHMdOmOpJpivipGDV9pRo1pR8mro77JuLGUM25SGoscOgYjxZmhxvuxUY0/exec"; // À remplacer après déploiement du script
-            await fetch(GOOGLE_SHEET_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: {
-                    "Content-Type": "text/plain;charset=utf-8"
-                },
-                body: JSON.stringify({
-                    nom: prenom + " " + nom,
-                    numero: userNumber,
-                    dateEntree: formatDate(),
-                    semaineGratuite: "Oui",
-                    invitePar: parrain || ""
-                })
-            });
-        } catch (sheetError) {
-            console.error("Erreur Google Sheets :", sheetError);
-        }
+try {
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwitu4s2yYHMdOmOpJpivipGDV9pRo1pR8mro77JuLGUM25SGoscOgYjxZmhxvuxUY0/exec";
+    const response = await fetch(GOOGLE_SHEET_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            nom: prenom + " " + nom,
+            numero: userNumber,
+            dateEntree: formatDate(),
+            semaineGratuite: "Oui",
+            invitePar: parrain || ""
+        })
+    });
+    console.log("Google Sheets response:", response);
+} catch (sheetError) {
+    console.error("Erreur Google Sheets :", sheetError);
+}
 
         showSuccess("Compte créé avec succès ! Redirection...");
         setTimeout(() => {
@@ -337,4 +344,4 @@ function showSuccess(msg) {
 </script>
 
 </body>
-</html>
+</html>                                                                    

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Trading Elite — Automatisation MT5</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-card: #161633;
+            --gold: #e2b93b;
+            --text: #ffffff;
+            --text-muted: #8888aa;
+            --border: #2a2a4a;
+            --green: #27ae60;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+        }
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10,10,26,0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--border);
+        }
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 900;
+        }
+        .logo span { color: var(--gold); }
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-left: 2rem;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--gold); }
+        .nav-links { display: flex; align-items: center; }
+        .nav-cta {
+            background: var(--gold) !important;
+            color: #000 !important;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .nav-cta:hover { background: #c9a230 !important; }
+        .mobile-menu { display: none; cursor: pointer; }
+        .mobile-menu div {
+            width: 25px;
+            height: 2px;
+            background: var(--text);
+            margin: 6px 0;
+        }
+
+        /* MAIN CONTENT */
+        main {
+            padding-top: 80px;
+            min-height: 100vh;
+        }
+        .hero {
+            padding: 4rem 2rem;
+            text-align: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+        }
+        .hero h1 span { color: var(--gold); }
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 4rem 0;
+            padding: 0 2rem;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+        .feature-card:hover {
+            border-color: var(--gold);
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--gold);
+        }
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .benefits {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 3rem;
+            margin: 4rem 2rem;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .benefits h2 {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            color: var(--gold);
+            text-align: center;
+        }
+        .benefit-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        .benefit-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .benefit-item::before {
+            content: "✓";
+            color: var(--green);
+            font-size: 1.5rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .benefit-item p {
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .pricing-section {
+            padding: 4rem 2rem;
+            text-align: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .price-box {
+            background: var(--bg-card);
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            margin: 2rem 0;
+            display: inline-block;
+            min-width: 300px;
+        }
+        .price-box .amount {
+            font-size: 3.5rem;
+            color: var(--gold);
+            font-weight: 900;
+            margin: 1rem 0;
+        }
+        .price-box .period {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        .cta-btn {
+            display: inline-block;
+            background: var(--gold);
+            color: #000;
+            padding: 1rem 3rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-decoration: none;
+            margin-top: 2rem;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .cta-btn:hover {
+            background: #c9a230;
+            transform: translateY(-2px);
+        }
+
+        .how-it-works {
+            padding: 4rem 2rem;
+            background: rgba(226,185,59,0.05);
+            margin: 4rem 0;
+        }
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            color: var(--gold);
+        }
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .step {
+            text-align: center;
+        }
+        .step-number {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: var(--gold);
+            color: #000;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            font-weight: bold;
+            line-height: 50px;
+            margin-bottom: 1rem;
+        }
+        .step h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .step p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            nav { padding: 1rem; }
+            nav > div:first-child { gap: 0.5rem; }
+            nav > div:first-child a { display: none; }
+            .nav-links { display: none; }
+            .mobile-menu { display: block; }
+            .nav-links.active {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--bg-primary);
+                padding: 1rem 2rem;
+                border-bottom: 1px solid var(--border);
+                z-index: 999;
+            }
+            .hero h1 { font-size: 2rem; }
+            .price-box { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <div style="display:flex; align-items:center; gap:1rem;">
+        <a href="index.html" class="logo">
+            TRADING <span>ELITE</span>
+        </a>
+    </div>
+    <div class="nav-links" id="navLinks">
+        <a href="index.html">Accueil</a>
+        <a href="robot.html">Robot</a>
+        <a href="tutos.html">Tutoriels</a>
+        <a href="auth.html" class="nav-cta">Creer un compte</a>
+    </div>
+    <div class="mobile-menu" onclick="document.getElementById('navLinks').classList.toggle('active')">
+        <div></div><div></div><div></div>
+    </div>
+</nav>
+
+<!-- HERO -->
+<main>
+    <section class="hero">
+        <h1>Robot Trading <span>Elite</span></h1>
+        <p>Automatisation intelligente des signaux Telegram vers MetaTrader 5</p>
+        <p style="font-size: 1rem; margin-top: -1rem;">Ne manquez plus jamais une opportunité — Le robot execute vos trades automatiquement 24h/24</p>
+    </section>
+
+    <!-- FEATURES -->
+    <div class="features">
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Execution Instantanee</h3>
+            <p>Les signaux sont lus en temps reel et executes sur votre compte MT5 en moins d'une seconde</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Mode SAFE/RISQUE</h3>
+            <p>Choisissez de prendre tous les trades ou uniquement ceux labellises SAFE pour moins de risque</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">💰</div>
+            <h3>Capital Personalise</h3>
+            <p>Reglez le montant investi dans chaque trade selon votre capital et votre strategie</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3>24h/24 - Aucun Arret</h3>
+            <p>Le robot fonctionne meme quand vous dormez. Capturez les opportunities a n'importe quelle heure</p>
+        </div>
+    </div>
+
+    <!-- WHY ROBOT -->
+    <section class="benefits">
+        <h2>Pourquoi le Robot ?</h2>
+        <div class="benefit-list">
+            <div class="benefit-item">
+                <p><strong>Scalping ultra-rapide:</strong> Nos trades durent entre 3 et 10 minutes. Impossible a faire manuellement.</p>
+            </div>
+            <div class="benefit-item">
+                <p><strong>Opportunites ne manquees:</strong> Un signal peut arriver a 3h du matin ou a 22h. Le robot ne dort jamais.</p>
+            </div>
+            <div class="benefit-item">
+                <p><strong>Precision absolue:</strong> Pas d'erreur de retranscription, pas d'oubli de TP/SL, execution parfaite.</p>
+            </div>
+            <div class="benefit-item">
+                <p><strong>Rentabilite rapide:</strong> Un seul trade peut rapporter 30€+. Le robot se paie souvent en une journee.</p>
+            </div>
+            <div class="benefit-item">
+                <p><strong>Gain de temps:</strong> Vous n'avez rien a faire. Le robot s'occupe de tout automatiquement.</p>
+            </div>
+            <div class="benefit-item">
+                <p><strong>Controle total:</strong> Vous restez maitre avec vos parametres (capital, SAFE/RISQUE, stoploss).</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-it-works">
+        <h2>Comment ca marche ?</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Lecture Telegram</h3>
+                <p>Le robot lit les signaux en temps reel sur le groupe Telegram Trading Elite</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Filtrage Intelligent</h3>
+                <p>Si vous avez active le mode SAFE, seuls les trades marques SAFE sont acceptes</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Execution Automatique</h3>
+                <p>Le robot copie le trade sur votre compte MT5 avec vos parametres de capital et SL/TP</p>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Resultats</h3>
+                <p>Le trade s'execute completement entre 3 et 10 minutes. Profit ou perte sur votre compte.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="pricing-section">
+        <h2 style="font-size: 2rem; margin-bottom: 2rem; color: var(--gold);">Tarif Robot Trading</h2>
+        <div class="price-box">
+            <div class="period">Par mois</div>
+            <div class="amount">60€</div>
+            <div class="period">Facturtion mensuelle</div>
+            <a href="auth.html" class="cta-btn">Commander le Robot</a>
+        </div>
+        <p style="color: var(--text-muted); margin-top: 2rem; font-size: 0.95rem;">
+            Note: Le robot necessite une abonnement VIP Trading Elite pour fonctionner
+        </p>
+    </section>
+</main>
+
+<script>
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            target && target.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+</script>
+
+</body>
+</html>

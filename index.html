@@ -481,6 +481,22 @@
         }
 
         @media (max-width: 768px) {
+            nav {
+                padding: 1rem;
+            }
+            nav > div:first-child {
+                gap: 0.5rem;
+            }
+            nav > div:first-child a {
+                display: none;
+            }
+            .logo {
+                font-size: 1.1rem;
+            }
+            .logo img {
+                height: 35px !important;
+                width: 35px !important;
+            }
             .nav-links { display: none; }
             .mobile-menu { display: block; }
             .nav-links.active {
@@ -493,6 +509,7 @@
                 background: var(--bg-primary);
                 padding: 1rem 2rem;
                 border-bottom: 1px solid var(--border);
+                z-index: 999;
             }
             .nav-links.active a { margin: 0.5rem 0; }
             .hero-stats { flex-direction: column; gap: 1.5rem; }
@@ -546,6 +563,7 @@
         <a href="#resultats">Résultats</a>
         <a href="#fonctionnement">Comment ça marche</a>
         <a href="#tarif">Tarif</a>
+        <a href="robot.html">Robot</a>
         <a href="tutos.html">Tutoriels</a>
         <a href="#faq">FAQ</a>
         <a href="auth.html" class="nav-cta">Créer un compte</a>
