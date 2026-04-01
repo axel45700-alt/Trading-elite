@@ -1,0 +1,20 @@
+site domaine : https://panel.lws.fr/frhebergement6-22.php
+user :LWS-800725
+pw : M7awa6Pn
+
+Site gestion : netlify  https://app.netlify.com/projects/clinquant-halva-e78242/deploys
+user : gmail axel45700@gmail.com
+
+source site html : GitHub
+user : gmail axel45700@gmail.com
+
+site log telegramme : https://my.telegram.org/apps
+
+gestion des paiements stripe : https://dashboard.stripe.com/acct_1TGNFvGY7Mz6S1FV/test/payment-links/plink_1TGRUyGY7Mz6S1FVNCBN3b95
+
+base de donner client : https://console.firebase.google.com/u/0/project/trading-elite/firestore/databases/-default-/data/~2Fusers~2FjZGKQZjv1rJrH4MyvZdZ 
+
+INPI
+
+loyer.axel@orange.fr
+Alicia45700?

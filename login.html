@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Se connecter — Trading Elite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-card: #161633;
+            --gold: #e2b93b;
+            --text: #ffffff;
+            --text-muted: #8888aa;
+            --border: #2a2a4a;
+            --green: #27ae60;
+            --red: #e74c3c;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .logo-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .logo-link {
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+        .logo-text {
+            font-size: 1.3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+        .logo-text span { color: var(--gold); }
+        .logo-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            font-family: inherit;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--gold);
+            background: rgba(255,255,255,0.08);
+        }
+        input::placeholder {
+            color: var(--text-muted);
+        }
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-primary {
+            background: var(--gold);
+            color: #000;
+        }
+        .btn-primary:hover {
+            background: #c9a230;
+            transform: translateY(-2px);
+        }
+        .btn-primary:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .error {
+            background: rgba(231,76,60,0.1);
+            border: 1px solid var(--red);
+            color: #ff6b6b;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        .success {
+            background: rgba(39,174,96,0.1);
+            border: 1px solid var(--green);
+            color: #2ecc71;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        .footer-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-muted);
+        }
+        .footer-link a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div class="logo-section">
+            <a href="index.html" class="logo-link">
+                <div class="logo-text">TRADING <span>ELITE</span></div>
+                <div class="logo-subtitle">Groupe Privé VIP</div>
+            </a>
+        </div>
+
+        <h1>Se connecter</h1>
+        <p class="subtitle">Accède à ton compte</p>
+
+        <form id="loginForm">
+            <div id="errorMsg" class="error" style="display:none;"></div>
+            <div id="successMsg" class="success" style="display:none;"></div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="ton@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" placeholder="Ton mot de passe" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                Se connecter
+            </button>
+        </form>
+
+        <div class="footer-link">
+            Pas encore de compte ? <a href="auth.html">Créer un compte</a>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
+  authDomain: "trading-elite.firebaseapp.com",
+  projectId: "trading-elite",
+  storageBucket: "trading-elite.firebasestorage.app",
+  messagingSenderId: "261674541691",
+  appId: "1:261674541691:web:27588043f232f8b152b8de"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const form = document.getElementById('loginForm');
+const errorMsg = document.getElementById('errorMsg');
+const successMsg = document.getElementById('successMsg');
+const submitBtn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Connexion...';
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        showSuccess('Connexion réussie ! Redirection...');
+        setTimeout(() => {
+            window.location.href = 'account.html';
+        }, 1500);
+    } catch (error) {
+        let message = 'Une erreur est survenue';
+        if (error.code === 'auth/user-not-found') {
+            message = 'Email non trouvé';
+        } else if (error.code === 'auth/wrong-password') {
+            message = 'Mot de passe incorrect';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Email invalide';
+        }
+        showError(message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Se connecter';
+    }
+});
+
+function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+    successMsg.style.display = 'none';
+}
+
+function showSuccess(msg) {
+    successMsg.textContent = msg;
+    successMsg.style.display = 'block';
+    errorMsg.style.display = 'none';
+}
+</script>
+
+</body>
+</html>
