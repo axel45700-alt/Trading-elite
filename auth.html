@@ -284,23 +284,33 @@ form.addEventListener("submit", async (e) => {
             dateSemaineGratuite: new Date(),
             abonne: false,
             dateAbonn: null,
-            prixMensuel: 60
+            prixMensuel: 60,
+            nombre_Filleul: 0
         });
 
         // Appliquer réduction au parrain si fourni
-        if (parrain) {
+        if (parrain && parrain !== "") {
             try {
                 const usersRef = collection(db, "users");
-                const q = query(usersRef, where("userNumber", "==", parseInt(parrain)));
-                const querySnapshot = await getDocs(q);
+                const parrainNum = parseInt(parrain, 10);
 
-                if (!querySnapshot.empty) {
-                    const parraindoc = querySnapshot.docs[0];
-                    const currentPrice = parraindoc.data().prixMensuel || 60;
-                    await updateDoc(parraindoc.ref, {
-                        prixMensuel: Math.max(0, currentPrice - 15)
-                    });
-                    console.log("Réduction appliquée au parrain");
+                if (!isNaN(parrainNum)) {
+                    const q = query(usersRef, where("userNumber", "==", parrainNum));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        const parraindoc = querySnapshot.docs[0];
+                        const currentPrice = parraindoc.data().prixMensuel || 60;
+                        const currentFilleuls = parraindoc.data().nombre_Filleul || 0;
+
+                        await updateDoc(parraindoc.ref, {
+                            prixMensuel: Math.max(0, currentPrice - 15),
+                            nombre_Filleul: currentFilleuls + 1
+                        });
+                        console.log("Réduction et filleul appliqués au parrain");
+                    } else {
+                        console.warn("Parrain non trouvé:", parrainNum);
+                    }
                 }
             } catch (e) {
                 console.error("Erreur application réduction:", e);
