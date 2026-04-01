@@ -566,8 +566,12 @@
         <a href="robot.html">Robot</a>
         <a href="tutos.html">Tutoriels</a>
         <a href="#faq">FAQ</a>
-        <a href="auth.html" class="nav-cta">Créer un compte</a>
-        <a href="login.html" style="color:var(--gold); font-weight:600;">Se connecter</a>
+        <div id="authLinks" style="display:flex; gap:1rem; align-items:center;">
+            <a href="auth.html" class="nav-cta" id="signupBtn">Créer un compte</a>
+            <a href="login.html" style="color:var(--gold); font-weight:600;" id="loginBtn">Se connecter</a>
+            <a href="account.html" class="nav-cta" id="profileBtn" style="display:none;">Mon profil</a>
+            <button id="logoutBtn" style="display:none; background:var(--red); color:white; border:none; padding:0.5rem 1.2rem; border-radius:8px; font-weight:600; cursor:pointer;">Se déconnecter</button>
+        </div>
     </div>
     <div class="mobile-menu" onclick="document.getElementById('navLinks').classList.toggle('active')">
         <div></div><div></div><div></div>
@@ -840,6 +844,50 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         const target = document.querySelector(this.getAttribute('href'));
         if (target) target.scrollIntoView({ behavior: 'smooth' });
     });
+});
+</script>
+
+<!-- AUTH CHECK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
+  authDomain: "trading-elite.firebaseapp.com",
+  projectId: "trading-elite",
+  storageBucket: "trading-elite.firebasestorage.app",
+  messagingSenderId: "261674541691",
+  appId: "1:261674541691:web:27588043f232f8b152b8de"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const signupBtn = document.getElementById('signupBtn');
+const loginBtn = document.getElementById('loginBtn');
+const profileBtn = document.getElementById('profileBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // Utilisateur connecté
+        signupBtn.style.display = 'none';
+        loginBtn.style.display = 'none';
+        profileBtn.style.display = 'block';
+        logoutBtn.style.display = 'block';
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.reload();
+        });
+    } else {
+        // Utilisateur pas connecté
+        signupBtn.style.display = 'block';
+        loginBtn.style.display = 'block';
+        profileBtn.style.display = 'none';
+        logoutBtn.style.display = 'none';
+    }
 });
 </script>
 

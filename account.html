@@ -216,9 +216,12 @@
             </div>
 
             <div class="action-section" id="actionSection">
-                <a href="https://buy.stripe.com/test_cNi14nfGt1K1849cXbgIo00" target="_blank" class="btn btn-primary">
+                <button id="paymentBtn" class="btn btn-primary">
                     Passer à l'abonnement VIP
-                </a>
+                </button>
+                <div id="pricingInfo" style="flex: 1; padding: 1rem; background: rgba(226,185,59,0.1); border-radius: 8px; border: 1px solid var(--gold); color: var(--gold); font-size: 0.9rem; display: none;">
+                    <span id="priceText">60€/mois</span>
+                </div>
             </div>
         </div>
 
@@ -234,6 +237,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getFirestore, collection, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
@@ -247,6 +251,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
 const loadingMsg = document.getElementById('loadingMsg');
 const errorSection = document.getElementById('errorSection');
@@ -275,12 +280,36 @@ onAuthStateChanged(auth, async (user) => {
         }
 
         const userData = snapshot.docs[0].data();
+        const docRef = snapshot.docs[0].ref;
 
         // Afficher les infos
         document.getElementById('nomValue').textContent = userData.nom || '-';
         document.getElementById('prenomValue').textContent = userData.prenom || '-';
         document.getElementById('emailValue').textContent = user.email;
         document.getElementById('telValue').textContent = userData.telephone || '-';
+
+        // Calculer et afficher le prix dynamique
+        const nombre_Filleul = userData.nombre_Filleul || 0;
+        const reduction = Math.min(nombre_Filleul, 4) * 15;
+        const prixFinal = Math.max(0, 60 - reduction);
+        document.getElementById('pricingInfo').style.display = 'block';
+        document.getElementById('priceText').textContent = prixFinal === 0 ? 'GRATUIT' : prixFinal + '€/mois';
+
+        // Bouton de paiement
+        const paymentBtn = document.getElementById('paymentBtn');
+        paymentBtn.addEventListener('click', async () => {
+            paymentBtn.disabled = true;
+            paymentBtn.textContent = 'Redirection vers Stripe...';
+            try {
+                const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
+                const result = await createCheckoutSession();
+                window.location.href = result.data.url;
+            } catch (error) {
+                alert('Erreur: ' + error.message);
+                paymentBtn.disabled = false;
+                paymentBtn.textContent = 'Passer à l\'abonnement VIP';
+            }
+        });
 
         // Calculer les jours restants
         if (userData.semaineGratuite) {
