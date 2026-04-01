@@ -288,29 +288,25 @@ form.addEventListener("submit", async (e) => {
             nombre_Filleul: 0
         });
 
-        // Appliquer réduction au parrain si fourni
+        // Appliquer réduction au parrain si fourni (chercher par téléphone)
         if (parrain && parrain !== "") {
             try {
                 const usersRef = collection(db, "users");
-                const parrainNum = parseInt(parrain, 10);
+                const q = query(usersRef, where("telephone", "==", parrain));
+                const querySnapshot = await getDocs(q);
 
-                if (!isNaN(parrainNum)) {
-                    const q = query(usersRef, where("userNumber", "==", parrainNum));
-                    const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const parraindoc = querySnapshot.docs[0];
+                    const currentPrice = parraindoc.data().prixMensuel || 60;
+                    const currentFilleuls = parraindoc.data().nombre_Filleul || 0;
 
-                    if (!querySnapshot.empty) {
-                        const parraindoc = querySnapshot.docs[0];
-                        const currentPrice = parraindoc.data().prixMensuel || 60;
-                        const currentFilleuls = parraindoc.data().nombre_Filleul || 0;
-
-                        await updateDoc(parraindoc.ref, {
-                            prixMensuel: Math.max(0, currentPrice - 15),
-                            nombre_Filleul: currentFilleuls + 1
-                        });
-                        console.log("Réduction et filleul appliqués au parrain");
-                    } else {
-                        console.warn("Parrain non trouvé:", parrainNum);
-                    }
+                    await updateDoc(parraindoc.ref, {
+                        prixMensuel: Math.max(0, currentPrice - 15),
+                        nombre_Filleul: currentFilleuls + 1
+                    });
+                    console.log("Réduction et filleul appliqués au parrain");
+                } else {
+                    console.warn("Parrain non trouvé avec téléphone:", parrain);
                 }
             } catch (e) {
                 console.error("Erreur application réduction:", e);
