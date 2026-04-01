@@ -217,7 +217,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
@@ -283,8 +283,29 @@ form.addEventListener("submit", async (e) => {
             semaineGratuite: true,
             dateSemaineGratuite: new Date(),
             abonne: false,
-            dateAbonn: null
+            dateAbonn: null,
+            prixMensuel: 60
         });
+
+        // Appliquer réduction au parrain si fourni
+        if (parrain) {
+            try {
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("userNumber", "==", parseInt(parrain)));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const parraindoc = querySnapshot.docs[0];
+                    const currentPrice = parraindoc.data().prixMensuel || 60;
+                    await updateDoc(parraindoc.ref, {
+                        prixMensuel: Math.max(0, currentPrice - 15)
+                    });
+                    console.log("Réduction appliquée au parrain");
+                }
+            } catch (e) {
+                console.error("Erreur application réduction:", e);
+            }
+        }
 
 try {
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwitu4s2yYHMdOmOpJpivipGDV9pRo1pR8mro77JuLGUM25SGoscOgYjxZmhxvuxUY0/exec";
