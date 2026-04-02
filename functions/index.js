@@ -1,6 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const Stripe = require("stripe");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -14,6 +14,13 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     const uid = context.auth.uid;
 
     try {
+        // Initialiser Stripe avec la clé secrète
+        const stripeKey = functions.config().stripe.secret_key;
+        if (!stripeKey) {
+            throw new functions.https.HttpsError("internal", "Clé Stripe non configurée");
+        }
+        const stripe = new Stripe(stripeKey);
+
         // Récupérer les données de l'utilisateur
         const usersRef = db.collection("users");
         const snapshot = await usersRef.where("uid", "==", uid).get();
@@ -31,6 +38,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
         const prixFinal = Math.max(0, 60 - reduction);
 
         // Créer la session Stripe
+        const productId = functions.config().stripe.product_id;
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             mode: "payment",
@@ -39,7 +47,7 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
                 {
                     price_data: {
                         currency: "eur",
-                        product: process.env.STRIPE_PRODUCT_ID,
+                        product: productId,
                         unit_amount: Math.round(prixFinal * 100), // Montant en centimes
                     },
                     quantity: 1,
