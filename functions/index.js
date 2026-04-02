@@ -97,3 +97,135 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 
     res.json({ received: true });
 });
+
+// LICENSE FUNCTIONS
+exports.activateKey = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        res.status(200).send("");
+        return;
+    }
+
+    const { email, key } = req.body;
+
+    try {
+        const licensesRef = db.collection("licenses");
+        const snapshot = await licensesRef.where("key", "==", key).get();
+
+        if (snapshot.empty) {
+            res.status(401).json({ valid: false, message: "Clé invalide" });
+            return;
+        }
+
+        const licenseDoc = snapshot.docs[0];
+        const licenseData = licenseDoc.data();
+
+        if (licenseData.email !== email) {
+            res.status(401).json({ valid: false, message: "Email ne correspond pas" });
+            return;
+        }
+
+        // Vérifier les sessions actives
+        const sessionsRef = db.collection("sessions");
+        const activeSessions = await sessionsRef
+            .where("key", "==", key)
+            .where("active", "==", true)
+            .get();
+
+        if (!activeSessions.empty) {
+            const lastSession = activeSessions.docs[0].data();
+            const lastHeartbeat = lastSession.lastHeartbeat?.toDate?.() || new Date(lastSession.lastHeartbeat);
+            const timeSinceHeartbeat = (new Date() - lastHeartbeat) / (1000 * 60); // minutes
+
+            if (timeSinceHeartbeat < 120) {
+                res.status(403).json({ valid: false, message: "Clé déjà active ailleurs" });
+                return;
+            }
+        }
+
+        // Créer nouvelle session
+        const sessionId = admin.firestore.FieldValue.serverTimestamp ? Math.random().toString(36).substring(7) : "session_" + Date.now();
+        await sessionsRef.add({
+            key: key,
+            email: email,
+            sessionId: sessionId,
+            active: true,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastHeartbeat: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ valid: true, sessionId: sessionId });
+    } catch (error) {
+        console.error("Erreur activateKey:", error);
+        res.status(500).json({ valid: false, message: "Erreur serveur" });
+    }
+});
+
+exports.heartbeat = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        res.status(200).send("");
+        return;
+    }
+
+    const { sessionId, key } = req.body;
+
+    try {
+        const sessionsRef = db.collection("sessions");
+        const snapshot = await sessionsRef
+            .where("sessionId", "==", sessionId)
+            .where("key", "==", key)
+            .get();
+
+        if (snapshot.empty) {
+            res.status(401).json({ valid: false });
+            return;
+        }
+
+        const sessionDoc = snapshot.docs[0];
+        await sessionDoc.ref.update({
+            lastHeartbeat: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ valid: true });
+    } catch (error) {
+        console.error("Erreur heartbeat:", error);
+        res.status(500).json({ valid: false });
+    }
+});
+
+exports.deactivateKey = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        res.status(200).send("");
+        return;
+    }
+
+    const { sessionId, key } = req.body;
+
+    try {
+        const sessionsRef = db.collection("sessions");
+        const snapshot = await sessionsRef
+            .where("sessionId", "==", sessionId)
+            .where("key", "==", key)
+            .get();
+
+        if (!snapshot.empty) {
+            await snapshot.docs[0].ref.update({ active: false });
+        }
+
+        res.json({ deactivated: true });
+    } catch (error) {
+        console.error("Erreur deactivateKey:", error);
+        res.status(500).json({ deactivated: false });
+    }
+});
