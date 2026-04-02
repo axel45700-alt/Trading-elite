@@ -128,19 +128,22 @@ exports.activateKey = functions.https.onRequest(async (req, res) => {
             return;
         }
 
-        // Vérifier les sessions actives
+        // Vérifier les sessions actives et nettoyer les expirées
         const sessionsRef = db.collection("sessions");
-        const activeSessions = await sessionsRef
+        const allSessions = await sessionsRef
             .where("key", "==", key)
-            .where("active", "==", true)
             .get();
 
-        if (!activeSessions.empty) {
-            const lastSession = activeSessions.docs[0].data();
-            const lastHeartbeat = lastSession.lastHeartbeat?.toDate?.() || new Date(lastSession.lastHeartbeat);
+        for (const sessionDoc of allSessions.docs) {
+            const sessionData = sessionDoc.data();
+            const lastHeartbeat = sessionData.lastHeartbeat?.toDate?.() || new Date(sessionData.lastHeartbeat);
             const timeSinceHeartbeat = (new Date() - lastHeartbeat) / (1000 * 60); // minutes
 
-            if (timeSinceHeartbeat < 120) {
+            if (timeSinceHeartbeat > 120) {
+                // Session expirée, la supprimer
+                await sessionDoc.ref.delete();
+            } else if (sessionData.active) {
+                // Session active récente
                 res.status(403).json({ valid: false, message: "Clé déjà active ailleurs" });
                 return;
             }
@@ -220,7 +223,7 @@ exports.deactivateKey = functions.https.onRequest(async (req, res) => {
             .get();
 
         if (!snapshot.empty) {
-            await snapshot.docs[0].ref.update({ active: false });
+            await snapshot.docs[0].ref.delete();
         }
 
         res.json({ deactivated: true });

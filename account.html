@@ -217,11 +217,8 @@
 
             <div class="action-section" id="actionSection">
                 <button id="paymentBtn" class="btn btn-primary">
-                    Passer à l'abonnement VIP
+                    Passer à l'abonnement VIP (60€)
                 </button>
-                <div id="pricingInfo" style="flex: 1; padding: 1rem; background: rgba(226,185,59,0.1); border-radius: 8px; border: 1px solid var(--gold); color: var(--gold); font-size: 0.9rem; display: none;">
-                    <span id="priceText">60€/mois</span>
-                </div>
             </div>
         </div>
 
@@ -292,11 +289,12 @@ onAuthStateChanged(auth, async (user) => {
         const nombre_Filleul = userData.nombre_Filleul || 0;
         const reduction = Math.min(nombre_Filleul, 4) * 15;
         const prixFinal = Math.max(0, 60 - reduction);
-        document.getElementById('pricingInfo').style.display = 'block';
-        document.getElementById('priceText').textContent = prixFinal === 0 ? 'GRATUIT' : prixFinal + '€/mois';
 
         // Bouton de paiement
         const paymentBtn = document.getElementById('paymentBtn');
+        const prixText = prixFinal === 0 ? 'Passer à l\'abonnement VIP (GRATUIT)' : `Passer à l'abonnement VIP (${prixFinal}€)`;
+        paymentBtn.textContent = prixText;
+
         paymentBtn.addEventListener('click', async () => {
             paymentBtn.disabled = true;
             paymentBtn.textContent = 'Redirection vers Stripe...';
@@ -307,7 +305,7 @@ onAuthStateChanged(auth, async (user) => {
             } catch (error) {
                 alert('Erreur: ' + error.message);
                 paymentBtn.disabled = false;
-                paymentBtn.textContent = 'Passer à l\'abonnement VIP';
+                paymentBtn.textContent = prixText;
             }
         });
 
