@@ -385,7 +385,7 @@
             <div class="period">Par mois</div>
             <div class="amount">60€</div>
             <div class="period">Facturtion mensuelle</div>
-            <a href="auth.html" class="cta-btn">Commander le Robot</a>
+            <a href="https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01" class="cta-btn" id="robotPayBtn" target="_blank">Commander le Robot</a>
         </div>
         <p style="color: var(--text-muted); margin-top: 2rem; font-size: 0.95rem;">
             Note: Le robot necessite une abonnement VIP Trading Elite pour fonctionner
@@ -410,10 +410,17 @@
     const auth = getAuth(app);
     const authLink = document.getElementById('authLink');
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
         if (user) {
             authLink.textContent = 'Mon profil';
             authLink.href = 'account.html';
+
+            // Mettre à jour le lien de paiement robot avec l'email
+            const robotPayBtn = document.getElementById('robotPayBtn');
+            if (robotPayBtn) {
+                const baseUrl = 'https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01';
+                robotPayBtn.href = `${baseUrl}?prefilled_email=${encodeURIComponent(user.email)}`;
+            }
         } else {
             authLink.textContent = 'Creer un compte';
             authLink.href = 'auth.html';
