@@ -215,6 +215,14 @@
                 </div>
             </div>
 
+            <div id="licenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
+                <div class="info-label" style="margin-bottom:0.5rem;">Clé de licence Robot</div>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <div id="licenseKeyValue" style="font-family:monospace; font-weight:700; color:var(--gold); word-break:break-all; flex:1;"></div>
+                    <button id="copyLicenseBtn" class="btn" style="background:var(--gold); color:#000; flex:0.3; padding:0.5rem;">Copier</button>
+                </div>
+            </div>
+
             <div class="action-section" id="actionSection">
                 <button id="paymentBtn" class="btn btn-primary">
                     Passer à l'abonnement VIP (60€)
@@ -314,6 +322,16 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-abonne">Abonné VIP</span>';
             document.getElementById('joursRestants').textContent = '∞';
             document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Ton abonnement est actif !</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
+
+            // Afficher la clé de licence si elle existe
+            if (userData.licenseKey) {
+                document.getElementById('licenseSection').style.display = 'block';
+                document.getElementById('licenseKeyValue').textContent = userData.licenseKey;
+                document.getElementById('copyLicenseBtn').addEventListener('click', () => {
+                    navigator.clipboard.writeText(userData.licenseKey);
+                    alert('Clé copiée !');
+                });
+            }
 
             document.getElementById('unsubscribeBtn').addEventListener('click', async () => {
                 if (confirm('Es-tu sûr de vouloir te désabonner ? Ton abonnement restera actif jusqu\'à la fin de la période en cours.')) {

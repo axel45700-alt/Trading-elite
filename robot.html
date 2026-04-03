@@ -287,7 +287,7 @@
         <a href="index.html">Accueil</a>
         <a href="robot.html">Robot</a>
         <a href="tutos.html">Tutoriels</a>
-        <a href="auth.html" class="nav-cta">Creer un compte</a>
+        <a href="auth.html" class="nav-cta" id="authLink">Creer un compte</a>
     </div>
     <div class="mobile-menu" onclick="document.getElementById('navLinks').classList.toggle('active')">
         <div></div><div></div><div></div>
@@ -393,7 +393,33 @@
     </section>
 </main>
 
-<script>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
+        authDomain: "trading-elite.firebaseapp.com",
+        projectId: "trading-elite",
+        storageBucket: "trading-elite.firebasestorage.app",
+        messagingSenderId: "261674541691",
+        appId: "1:261674541691:web:27588043f232f8b152b8de"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const authLink = document.getElementById('authLink');
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            authLink.textContent = 'Mon profil';
+            authLink.href = 'account.html';
+        } else {
+            authLink.textContent = 'Creer un compte';
+            authLink.href = 'auth.html';
+        }
+    });
+
     // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
         a.addEventListener('click', function(e) {

@@ -93,58 +93,88 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             // Quand l'abonnement est créé via checkout
             case "checkout.session.completed": {
                 const session = event.data.object;
-                const uid = session.metadata.uid;
+                const uid = session.metadata?.uid;
+                const email = session.customer_email;
                 const subscriptionId = session.subscription;
                 const customerId = session.customer;
 
+                let userRef = null;
+                let userData = null;
+
+                // Si uid en metadata (createCheckoutSession), sinon chercher par email (Payment Link)
+                const usersRef = db.collection("users");
                 if (uid) {
-                    const usersRef = db.collection("users");
                     const snapshot = await usersRef.where("uid", "==", uid).get();
                     if (!snapshot.empty) {
-                        const userData = snapshot.docs[0].data();
-                        await snapshot.docs[0].ref.update({
-                            abonne: true,
-                            dateAbonn: admin.firestore.FieldValue.serverTimestamp(),
-                            stripeSubscriptionId: subscriptionId,
-                            stripeCustomerId: customerId,
-                        });
-                        console.log(`Abonnement activé pour uid: ${uid}`);
+                        userRef = snapshot.docs[0].ref;
+                        userData = snapshot.docs[0].data();
+                    }
+                } else if (email) {
+                    const snapshot = await usersRef.where("email", "==", email).get();
+                    if (!snapshot.empty) {
+                        userRef = snapshot.docs[0].ref;
+                        userData = snapshot.docs[0].data();
+                    }
+                }
 
-                        // Appliquer la réduction au parrain si ce filleul a un parrain
-                        const parrainTel = userData.parrain;
-                        if (parrainTel) {
-                            const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
-                            if (!parrainSnapshot.empty) {
-                                const parrainData = parrainSnapshot.docs[0].data();
-                                const currentFilleuls = parrainData.nombre_Filleul || 0;
-                                const newFilleuls = currentFilleuls + 1;
-                                const newPrice = Math.max(0, 60 - Math.min(newFilleuls, 4) * 15);
+                if (userRef && userData) {
+                    // Générer une clé de licence unique
+                    const licenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
-                                await parrainSnapshot.docs[0].ref.update({
-                                    nombre_Filleul: newFilleuls,
-                                    prixMensuel: newPrice,
+                    // Ajouter la licence dans Firestore
+                    await db.collection("licenses").add({
+                        key: licenseKey,
+                        email: email,
+                        uid: userData.uid,
+                        dateCreation: admin.firestore.FieldValue.serverTimestamp(),
+                        active: true,
+                    });
+
+                    // Mettre à jour le profil utilisateur
+                    await userRef.update({
+                        abonne: true,
+                        dateAbonn: admin.firestore.FieldValue.serverTimestamp(),
+                        Robot_En_cours: true,
+                        licenseKey: licenseKey,
+                        stripeSubscriptionId: subscriptionId,
+                        stripeCustomerId: customerId,
+                    });
+                    console.log(`Abonnement activé + licence générée pour ${email}: ${licenseKey}`);
+
+                    // Appliquer la réduction au parrain si ce filleul a un parrain
+                    const parrainTel = userData.parrain;
+                    if (parrainTel) {
+                        const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
+                        if (!parrainSnapshot.empty) {
+                            const parrainData = parrainSnapshot.docs[0].data();
+                            const currentFilleuls = parrainData.nombre_Filleul || 0;
+                            const newFilleuls = currentFilleuls + 1;
+                            const newPrice = Math.max(0, 60 - Math.min(newFilleuls, 4) * 15);
+
+                            await parrainSnapshot.docs[0].ref.update({
+                                nombre_Filleul: newFilleuls,
+                                prixMensuel: newPrice,
+                            });
+                            console.log(`Parrain ${parrainTel}: +1 filleul payant, prix -> ${newPrice}€`);
+
+                            // Mettre à jour l'abonnement Stripe du parrain
+                            const parrainSubId = parrainData.stripeSubscriptionId;
+                            if (parrainSubId) {
+                                const parrainSub = await stripe.subscriptions.retrieve(parrainSubId);
+                                const currentItem = parrainSub.items.data[0];
+                                await stripe.subscriptions.update(parrainSubId, {
+                                    items: [{
+                                        id: currentItem.id,
+                                        price_data: {
+                                            currency: "eur",
+                                            product: process.env.STRIPE_PRODUCT_ID,
+                                            unit_amount: Math.round(newPrice * 100),
+                                            recurring: { interval: "month" },
+                                        },
+                                    }],
+                                    proration_behavior: "none",
                                 });
-                                console.log(`Parrain ${parrainTel}: +1 filleul payant, prix -> ${newPrice}€`);
-
-                                // Mettre à jour l'abonnement Stripe du parrain
-                                const parrainSubId = parrainData.stripeSubscriptionId;
-                                if (parrainSubId) {
-                                    const parrainSub = await stripe.subscriptions.retrieve(parrainSubId);
-                                    const currentItem = parrainSub.items.data[0];
-                                    await stripe.subscriptions.update(parrainSubId, {
-                                        items: [{
-                                            id: currentItem.id,
-                                            price_data: {
-                                                currency: "eur",
-                                                product: process.env.STRIPE_PRODUCT_ID,
-                                                unit_amount: Math.round(newPrice * 100),
-                                                recurring: { interval: "month" },
-                                            },
-                                        }],
-                                        proration_behavior: "none",
-                                    });
-                                    console.log(`Prix Stripe parrain mis à jour: ${newPrice}€/mois`);
-                                }
+                                console.log(`Prix Stripe parrain mis à jour: ${newPrice}€/mois`);
                             }
                         }
                     }
