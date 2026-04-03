@@ -309,8 +309,25 @@ onAuthStateChanged(auth, async (user) => {
             }
         });
 
-        // Calculer les jours restants
-        if (userData.semaineGratuite) {
+        // Vérifier le statut : abonné en priorité, puis semaine gratuite
+        if (userData.abonne) {
+            document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-abonne">Abonné VIP</span>';
+            document.getElementById('joursRestants').textContent = '∞';
+            document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Ton abonnement est actif !</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
+
+            document.getElementById('unsubscribeBtn').addEventListener('click', async () => {
+                if (confirm('Es-tu sûr de vouloir te désabonner ? Ton abonnement restera actif jusqu\'à la fin de la période en cours.')) {
+                    try {
+                        const cancelSubscription = httpsCallable(functions, 'cancelSubscription');
+                        await cancelSubscription();
+                        alert('Ton abonnement sera annulé à la fin de la période en cours.');
+                        location.reload();
+                    } catch (error) {
+                        alert('Erreur lors de la désinscription: ' + error.message);
+                    }
+                }
+            });
+        } else if (userData.semaineGratuite) {
             const dateCreation = userData.dateSemaineGratuite.toDate ? userData.dateSemaineGratuite.toDate() : new Date(userData.dateSemaineGratuite);
             const joursEcoules = Math.floor((new Date() - dateCreation) / (1000 * 60 * 60 * 24));
             const joursRestants = Math.max(0, 7 - joursEcoules);
@@ -320,23 +337,6 @@ onAuthStateChanged(auth, async (user) => {
             if (joursRestants === 0) {
                 document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-expire">Semaine gratuite expirée</span>';
             }
-        } else if (userData.abonne) {
-            document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-abonne">Abonné VIP</span>';
-            document.getElementById('joursRestants').textContent = '∞';
-            document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Ton abonnement est actif !</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
-
-            document.getElementById('unsubscribeBtn').addEventListener('click', async () => {
-                if (confirm('Es-tu sûr de vouloir te désabonner ? Tu perdras accès à tous les services VIP.')) {
-                    try {
-                        const docRef = snapshot.docs[0].ref;
-                        await updateDoc(docRef, { abonne: false, dateAbonn: null });
-                        alert('Tu as été désabonné. La page va se rafraîchir.');
-                        location.reload();
-                    } catch (error) {
-                        alert('Erreur lors de la désinscription: ' + error.message);
-                    }
-                }
-            });
         }
 
         loadingMsg.style.display = 'none';

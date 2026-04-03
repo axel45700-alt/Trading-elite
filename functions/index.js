@@ -5,8 +5,12 @@ const Stripe = require("stripe");
 admin.initializeApp();
 const db = admin.firestore();
 
+// Initialiser Stripe une seule fois
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// ==================== STRIPE CHECKOUT ====================
+
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
-    // Vérifier que l'utilisateur est authentifié
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "L'utilisateur doit être authentifié");
     }
@@ -14,14 +18,6 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     const uid = context.auth.uid;
 
     try {
-        // Initialiser Stripe avec la clé secrète
-        const stripeKey = functions.config().stripe.secret_key;
-        if (!stripeKey) {
-            throw new functions.https.HttpsError("internal", "Clé Stripe non configurée");
-        }
-        const stripe = new Stripe(stripeKey);
-
-        // Récupérer les données de l'utilisateur
         const usersRef = db.collection("users");
         const snapshot = await usersRef.where("uid", "==", uid).get();
 
@@ -37,18 +33,25 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
         const reduction = Math.min(nombre_Filleul, 4) * 15;
         const prixFinal = Math.max(0, 60 - reduction);
 
-        // Créer la session Stripe
-        const productId = functions.config().stripe.product_id;
+        // Créer ou récupérer le customer Stripe
+        let customerId = userData.stripeCustomerId;
+        if (!customerId) {
+            const customer = await stripe.customers.create({ email: email });
+            customerId = customer.id;
+            await snapshot.docs[0].ref.update({ stripeCustomerId: customerId });
+        }
+
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
-            mode: "payment",
-            customer_email: email,
+            mode: "subscription",
+            customer: customerId,
             line_items: [
                 {
                     price_data: {
                         currency: "eur",
-                        product: productId,
-                        unit_amount: Math.round(prixFinal * 100), // Montant en centimes
+                        product: process.env.STRIPE_PRODUCT_ID,
+                        unit_amount: Math.round(prixFinal * 100),
+                        recurring: { interval: "month" },
                     },
                     quantity: 1,
                 },
@@ -57,7 +60,6 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
             cancel_url: "https://trading-elite.firebaseapp.com/account.html?payment=cancelled",
             metadata: {
                 uid: uid,
-                nombre_Filleul: nombre_Filleul.toString(),
             },
         });
 
@@ -68,7 +70,8 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     }
 });
 
-// Webhook Stripe pour confirmer le paiement
+// ==================== STRIPE WEBHOOK ====================
+
 exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
@@ -80,33 +83,235 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (err) {
+        console.error("Webhook signature verification failed:", err.message);
         res.status(400).send(`Webhook Error: ${err.message}`);
         return;
     }
 
-    if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
-        const uid = session.metadata.uid;
+    try {
+        switch (event.type) {
+            // Quand l'abonnement est créé via checkout
+            case "checkout.session.completed": {
+                const session = event.data.object;
+                const uid = session.metadata.uid;
+                const subscriptionId = session.subscription;
+                const customerId = session.customer;
 
-        try {
-            const usersRef = db.collection("users");
-            const snapshot = await usersRef.where("uid", "==", uid).get();
+                if (uid) {
+                    const usersRef = db.collection("users");
+                    const snapshot = await usersRef.where("uid", "==", uid).get();
+                    if (!snapshot.empty) {
+                        const userData = snapshot.docs[0].data();
+                        await snapshot.docs[0].ref.update({
+                            abonne: true,
+                            dateAbonn: admin.firestore.FieldValue.serverTimestamp(),
+                            stripeSubscriptionId: subscriptionId,
+                            stripeCustomerId: customerId,
+                        });
+                        console.log(`Abonnement activé pour uid: ${uid}`);
 
-            if (!snapshot.empty) {
-                await snapshot.docs[0].ref.update({
-                    abonne: true,
-                    dateAbonn: admin.firestore.FieldValue.serverTimestamp(),
-                });
+                        // Appliquer la réduction au parrain si ce filleul a un parrain
+                        const parrainTel = userData.parrain;
+                        if (parrainTel) {
+                            const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
+                            if (!parrainSnapshot.empty) {
+                                const parrainData = parrainSnapshot.docs[0].data();
+                                const currentFilleuls = parrainData.nombre_Filleul || 0;
+                                const newFilleuls = currentFilleuls + 1;
+                                const newPrice = Math.max(0, 60 - Math.min(newFilleuls, 4) * 15);
+
+                                await parrainSnapshot.docs[0].ref.update({
+                                    nombre_Filleul: newFilleuls,
+                                    prixMensuel: newPrice,
+                                });
+                                console.log(`Parrain ${parrainTel}: +1 filleul payant, prix -> ${newPrice}€`);
+
+                                // Mettre à jour l'abonnement Stripe du parrain
+                                const parrainSubId = parrainData.stripeSubscriptionId;
+                                if (parrainSubId) {
+                                    const parrainSub = await stripe.subscriptions.retrieve(parrainSubId);
+                                    const currentItem = parrainSub.items.data[0];
+                                    await stripe.subscriptions.update(parrainSubId, {
+                                        items: [{
+                                            id: currentItem.id,
+                                            price_data: {
+                                                currency: "eur",
+                                                product: process.env.STRIPE_PRODUCT_ID,
+                                                unit_amount: Math.round(newPrice * 100),
+                                                recurring: { interval: "month" },
+                                            },
+                                        }],
+                                        proration_behavior: "none",
+                                    });
+                                    console.log(`Prix Stripe parrain mis à jour: ${newPrice}€/mois`);
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
             }
-        } catch (error) {
-            console.error("Erreur update Firestore:", error);
+
+            // Paiement mensuel réussi
+            case "invoice.paid": {
+                const invoice = event.data.object;
+                const customerId = invoice.customer;
+
+                const usersRef = db.collection("users");
+                const snapshot = await usersRef.where("stripeCustomerId", "==", customerId).get();
+                if (!snapshot.empty) {
+                    await snapshot.docs[0].ref.update({
+                        abonne: true,
+                        dernierPaiement: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log(`Paiement mensuel reçu pour customer: ${customerId}`);
+                }
+                break;
+            }
+
+            // Paiement échoué
+            case "invoice.payment_failed": {
+                const invoice = event.data.object;
+                const customerId = invoice.customer;
+
+                const usersRef = db.collection("users");
+                const snapshot = await usersRef.where("stripeCustomerId", "==", customerId).get();
+                if (!snapshot.empty) {
+                    await snapshot.docs[0].ref.update({ abonne: false });
+                    console.log(`Paiement échoué pour customer: ${customerId}`);
+                }
+                break;
+            }
+
+            // Abonnement annulé
+            case "customer.subscription.deleted": {
+                const subscription = event.data.object;
+                const customerId = subscription.customer;
+
+                const usersRef = db.collection("users");
+                const snapshot = await usersRef.where("stripeCustomerId", "==", customerId).get();
+                if (!snapshot.empty) {
+                    await snapshot.docs[0].ref.update({
+                        abonne: false,
+                        stripeSubscriptionId: null,
+                    });
+                    console.log(`Abonnement annulé pour customer: ${customerId}`);
+                }
+                break;
+            }
         }
+    } catch (error) {
+        console.error("Erreur webhook:", error);
     }
 
     res.json({ received: true });
 });
 
-// LICENSE FUNCTIONS
+// ==================== ANNULER ABONNEMENT ====================
+
+exports.cancelSubscription = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "L'utilisateur doit être authentifié");
+    }
+
+    const uid = context.auth.uid;
+
+    try {
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef.where("uid", "==", uid).get();
+
+        if (snapshot.empty) {
+            throw new functions.https.HttpsError("not-found", "Utilisateur non trouvé");
+        }
+
+        const userData = snapshot.docs[0].data();
+        const subscriptionId = userData.stripeSubscriptionId;
+
+        if (!subscriptionId) {
+            throw new functions.https.HttpsError("not-found", "Aucun abonnement trouvé");
+        }
+
+        // Annuler à la fin de la période en cours
+        await stripe.subscriptions.update(subscriptionId, {
+            cancel_at_period_end: true,
+        });
+
+        console.log(`Abonnement ${subscriptionId} sera annulé en fin de période`);
+        return { success: true, message: "Abonnement annulé en fin de période" };
+    } catch (error) {
+        console.error("Erreur annulation:", error);
+        throw new functions.https.HttpsError("internal", "Erreur lors de l'annulation");
+    }
+});
+
+// ==================== MISE A JOUR PRIX FILLEUL ====================
+
+exports.updateSubscriptionPrice = functions.https.onRequest(async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        res.status(200).send("");
+        return;
+    }
+
+    const { parrainTelephone } = req.body;
+
+    try {
+        // Trouver le parrain par téléphone
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef.where("telephone", "==", parrainTelephone).get();
+
+        if (snapshot.empty) {
+            res.json({ updated: false, message: "Parrain non trouvé" });
+            return;
+        }
+
+        const parrainData = snapshot.docs[0].data();
+        const subscriptionId = parrainData.stripeSubscriptionId;
+
+        if (!subscriptionId) {
+            // Parrain pas encore abonné, le prix sera calculé au moment du paiement
+            res.json({ updated: false, message: "Parrain pas encore abonné" });
+            return;
+        }
+
+        // Calculer le nouveau prix
+        const nombre_Filleul = parrainData.nombre_Filleul || 0;
+        const reduction = Math.min(nombre_Filleul, 4) * 15;
+        const nouveauPrix = Math.max(0, 60 - reduction);
+
+        // Récupérer l'abonnement actuel
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const currentItem = subscription.items.data[0];
+
+        // Mettre à jour le prix de l'abonnement
+        await stripe.subscriptions.update(subscriptionId, {
+            items: [
+                {
+                    id: currentItem.id,
+                    price_data: {
+                        currency: "eur",
+                        product: process.env.STRIPE_PRODUCT_ID,
+                        unit_amount: Math.round(nouveauPrix * 100),
+                        recurring: { interval: "month" },
+                    },
+                },
+            ],
+            proration_behavior: "none", // Pas de prorata, le nouveau prix s'applique au prochain cycle
+        });
+
+        console.log(`Prix mis à jour pour ${parrainTelephone}: ${nouveauPrix}€/mois`);
+        res.json({ updated: true, nouveauPrix: nouveauPrix });
+    } catch (error) {
+        console.error("Erreur updateSubscriptionPrice:", error);
+        res.status(500).json({ updated: false, message: "Erreur serveur" });
+    }
+});
+
+// ==================== LICENSE FUNCTIONS ====================
+
 exports.activateKey = functions.https.onRequest(async (req, res) => {
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -136,29 +341,23 @@ exports.activateKey = functions.https.onRequest(async (req, res) => {
             return;
         }
 
-        // Vérifier les sessions actives et nettoyer les expirées
         const sessionsRef = db.collection("sessions");
-        const allSessions = await sessionsRef
-            .where("key", "==", key)
-            .get();
+        const allSessions = await sessionsRef.where("key", "==", key).get();
 
         for (const sessionDoc of allSessions.docs) {
             const sessionData = sessionDoc.data();
             const lastHeartbeat = sessionData.lastHeartbeat?.toDate?.() || new Date(sessionData.lastHeartbeat);
-            const timeSinceHeartbeat = (new Date() - lastHeartbeat) / (1000 * 60); // minutes
+            const timeSinceHeartbeat = (new Date() - lastHeartbeat) / (1000 * 60);
 
             if (timeSinceHeartbeat > 120) {
-                // Session expirée, la supprimer
                 await sessionDoc.ref.delete();
             } else if (sessionData.active) {
-                // Session active récente
                 res.status(403).json({ valid: false, message: "Clé déjà active ailleurs" });
                 return;
             }
         }
 
-        // Créer nouvelle session
-        const sessionId = admin.firestore.FieldValue.serverTimestamp ? Math.random().toString(36).substring(7) : "session_" + Date.now();
+        const sessionId = Math.random().toString(36).substring(7);
         await sessionsRef.add({
             key: key,
             email: email,
@@ -199,8 +398,7 @@ exports.heartbeat = functions.https.onRequest(async (req, res) => {
             return;
         }
 
-        const sessionDoc = snapshot.docs[0];
-        await sessionDoc.ref.update({
+        await snapshot.docs[0].ref.update({
             lastHeartbeat: admin.firestore.FieldValue.serverTimestamp()
         });
 

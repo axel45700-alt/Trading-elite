@@ -296,15 +296,7 @@ form.addEventListener("submit", async (e) => {
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    const parraindoc = querySnapshot.docs[0];
-                    const currentPrice = parraindoc.data().prixMensuel || 60;
-                    const currentFilleuls = parraindoc.data().nombre_Filleul || 0;
-
-                    await updateDoc(parraindoc.ref, {
-                        prixMensuel: Math.max(0, currentPrice - 15),
-                        nombre_Filleul: currentFilleuls + 1
-                    });
-                    console.log("Réduction et filleul appliqués au parrain");
+                    console.log("Parrain trouvé, la réduction sera appliquée quand le filleul payera");
                 } else {
                     console.warn("Parrain non trouvé avec téléphone:", parrain);
                 }
