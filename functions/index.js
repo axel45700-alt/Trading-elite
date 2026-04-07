@@ -118,63 +118,99 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                 }
 
                 if (userRef && userData) {
-                    // Générer une clé de licence unique
-                    const licenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+                    // Récupérer le product_id depuis line_items
+                    const lineItems = session.line_items?.data || [];
+                    const product_id = lineItems.length > 0 ? lineItems[0].price?.product : null;
 
-                    // Ajouter la licence dans Firestore
-                    await db.collection("licenses").add({
-                        key: licenseKey,
-                        email: email,
-                        uid: userData.uid,
-                        dateCreation: admin.firestore.FieldValue.serverTimestamp(),
-                        active: true,
-                    });
-
-                    // Mettre à jour le profil utilisateur
-                    await userRef.update({
-                        abonne: true,
-                        dateAbonn: admin.firestore.FieldValue.serverTimestamp(),
-                        Robot_En_cours: true,
-                        licenseKey: licenseKey,
+                    const updateData = {
                         stripeSubscriptionId: subscriptionId,
                         stripeCustomerId: customerId,
-                    });
-                    console.log(`Abonnement activé + licence générée pour ${email}: ${licenseKey}`);
+                    };
 
-                    // Appliquer la réduction au parrain si ce filleul a un parrain
-                    const parrainTel = userData.parrain;
-                    if (parrainTel) {
-                        const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
-                        if (!parrainSnapshot.empty) {
-                            const parrainData = parrainSnapshot.docs[0].data();
-                            const currentFilleuls = parrainData.nombre_Filleul || 0;
-                            const newFilleuls = currentFilleuls + 1;
-                            const newPrice = Math.max(0, 60 - Math.min(newFilleuls, 4) * 15);
+                    // Robot product
+                    if (product_id === "prod_UGc2G9j3E9Snmx") {
+                        // Générer une clé de licence unique pour Robot
+                        const robotLicenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
-                            await parrainSnapshot.docs[0].ref.update({
-                                nombre_Filleul: newFilleuls,
-                                prixMensuel: newPrice,
-                            });
-                            console.log(`Parrain ${parrainTel}: +1 filleul payant, prix -> ${newPrice}€`);
+                        // Ajouter la licence Robot dans Firestore
+                        await db.collection("licenses").add({
+                            key: robotLicenseKey,
+                            email: email,
+                            uid: userData.uid,
+                            type: "Robot",
+                            dateCreation: admin.firestore.FieldValue.serverTimestamp(),
+                            active: true,
+                        });
 
-                            // Mettre à jour l'abonnement Stripe du parrain
-                            const parrainSubId = parrainData.stripeSubscriptionId;
-                            if (parrainSubId) {
-                                const parrainSub = await stripe.subscriptions.retrieve(parrainSubId);
-                                const currentItem = parrainSub.items.data[0];
-                                await stripe.subscriptions.update(parrainSubId, {
-                                    items: [{
-                                        id: currentItem.id,
-                                        price_data: {
-                                            currency: "eur",
-                                            product: process.env.STRIPE_PRODUCT_ID,
-                                            unit_amount: Math.round(newPrice * 100),
-                                            recurring: { interval: "month" },
-                                        },
-                                    }],
-                                    proration_behavior: "none",
+                        // Ajouter les propriétés spécifiques au Robot
+                        updateData.Robot_En_cours = true;
+                        updateData.robotLicenseKey = robotLicenseKey;
+
+                        console.log(`Licence Robot générée pour ${email}: ${robotLicenseKey}`);
+                    }
+                    // VIP product
+                    else if (product_id === process.env.STRIPE_PRODUCT_ID) {
+                        // Générer une clé de licence unique pour VIP
+                        const vipLicenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+
+                        // Ajouter la licence VIP dans Firestore
+                        await db.collection("licenses").add({
+                            key: vipLicenseKey,
+                            email: email,
+                            uid: userData.uid,
+                            type: "VIP",
+                            dateCreation: admin.firestore.FieldValue.serverTimestamp(),
+                            active: true,
+                        });
+
+                        // Ajouter les propriétés spécifiques au VIP (pas de Robot_En_cours)
+                        updateData.abonne = true;
+                        updateData.vipLicenseKey = vipLicenseKey;
+                        updateData.dateAbonn = admin.firestore.FieldValue.serverTimestamp();
+
+                        console.log(`Licence VIP générée pour ${email}: ${vipLicenseKey}`);
+                    }
+
+                    // Mettre à jour le profil utilisateur
+                    await userRef.update(updateData);
+                    console.log(`Abonnement activé pour ${email}`);
+
+                    // Appliquer la réduction au parrain si ce filleul a un parrain (seulement pour VIP)
+                    if (product_id === process.env.STRIPE_PRODUCT_ID) {
+                        const parrainTel = userData.parrain;
+                        if (parrainTel) {
+                            const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
+                            if (!parrainSnapshot.empty) {
+                                const parrainData = parrainSnapshot.docs[0].data();
+                                const currentFilleuls = parrainData.nombre_Filleul || 0;
+                                const newFilleuls = currentFilleuls + 1;
+                                const newPrice = Math.max(0, 60 - Math.min(newFilleuls, 4) * 15);
+
+                                await parrainSnapshot.docs[0].ref.update({
+                                    nombre_Filleul: newFilleuls,
+                                    prixMensuel: newPrice,
                                 });
-                                console.log(`Prix Stripe parrain mis à jour: ${newPrice}€/mois`);
+                                console.log(`Parrain ${parrainTel}: +1 filleul payant, prix -> ${newPrice}€`);
+
+                                // Mettre à jour l'abonnement Stripe du parrain
+                                const parrainSubId = parrainData.stripeSubscriptionId;
+                                if (parrainSubId) {
+                                    const parrainSub = await stripe.subscriptions.retrieve(parrainSubId);
+                                    const currentItem = parrainSub.items.data[0];
+                                    await stripe.subscriptions.update(parrainSubId, {
+                                        items: [{
+                                            id: currentItem.id,
+                                            price_data: {
+                                                currency: "eur",
+                                                product: process.env.STRIPE_PRODUCT_ID,
+                                                unit_amount: Math.round(newPrice * 100),
+                                                recurring: { interval: "month" },
+                                            },
+                                        }],
+                                        proration_behavior: "none",
+                                    });
+                                    console.log(`Prix Stripe parrain mis à jour: ${newPrice}€/mois`);
+                                }
                             }
                         }
                     }

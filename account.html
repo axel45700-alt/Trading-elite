@@ -215,11 +215,19 @@
                 </div>
             </div>
 
-            <div id="licenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
+            <div id="vipLicenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
+                <div class="info-label" style="margin-bottom:0.5rem;">Clé de licence VIP</div>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <div id="vipLicenseKeyValue" style="font-family:monospace; font-weight:700; color:var(--gold); word-break:break-all; flex:1;"></div>
+                    <button id="copyVipLicenseBtn" class="btn" style="background:var(--gold); color:#000; flex:0.3; padding:0.5rem;">Copier</button>
+                </div>
+            </div>
+
+            <div id="robotLicenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
                 <div class="info-label" style="margin-bottom:0.5rem;">Clé de licence Robot</div>
                 <div style="display:flex; gap:1rem; align-items:center;">
-                    <div id="licenseKeyValue" style="font-family:monospace; font-weight:700; color:var(--gold); word-break:break-all; flex:1;"></div>
-                    <button id="copyLicenseBtn" class="btn" style="background:var(--gold); color:#000; flex:0.3; padding:0.5rem;">Copier</button>
+                    <div id="robotLicenseKeyValue" style="font-family:monospace; font-weight:700; color:var(--gold); word-break:break-all; flex:1;"></div>
+                    <button id="copyRobotLicenseBtn" class="btn" style="background:var(--gold); color:#000; flex:0.3; padding:0.5rem;">Copier</button>
                 </div>
             </div>
 
@@ -323,13 +331,23 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('joursRestants').textContent = '∞';
             document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Ton abonnement est actif !</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
 
-            // Afficher la clé de licence si elle existe
-            if (userData.licenseKey) {
-                document.getElementById('licenseSection').style.display = 'block';
-                document.getElementById('licenseKeyValue').textContent = userData.licenseKey;
-                document.getElementById('copyLicenseBtn').addEventListener('click', () => {
-                    navigator.clipboard.writeText(userData.licenseKey);
-                    alert('Clé copiée !');
+            // Afficher la clé VIP si elle existe
+            if (userData.vipLicenseKey) {
+                document.getElementById('vipLicenseSection').style.display = 'block';
+                document.getElementById('vipLicenseKeyValue').textContent = userData.vipLicenseKey;
+                document.getElementById('copyVipLicenseBtn').addEventListener('click', () => {
+                    navigator.clipboard.writeText(userData.vipLicenseKey);
+                    alert('Clé VIP copiée !');
+                });
+            }
+
+            // Afficher la clé Robot si elle existe
+            if (userData.robotLicenseKey) {
+                document.getElementById('robotLicenseSection').style.display = 'block';
+                document.getElementById('robotLicenseKeyValue').textContent = userData.robotLicenseKey;
+                document.getElementById('copyRobotLicenseBtn').addEventListener('click', () => {
+                    navigator.clipboard.writeText(userData.robotLicenseKey);
+                    alert('Clé Robot copiée !');
                 });
             }
 
