@@ -104,6 +104,16 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             // Quand l'abonnement est créé via checkout
             case "checkout.session.completed": {
                 const session = event.data.object;
+
+                // Anti-doublon : vérifier si cette session a déjà été traitée
+                const processedRef = db.collection("processedSessions").doc(session.id);
+                const alreadyProcessed = await processedRef.get();
+                if (alreadyProcessed.exists) {
+                    console.log(`Session ${session.id} déjà traitée, ignorée`);
+                    break;
+                }
+                await processedRef.set({ processedAt: admin.firestore.FieldValue.serverTimestamp() });
+
                 const uid = session.metadata?.uid;
                 // Payment Link met l'email dans customer_details.email, pas customer_email
                 const email = session.customer_email || session.customer_details?.email;
@@ -151,32 +161,21 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                             active: true,
                         });
 
-                        // Stocker le customer ID Robot séparément pour éviter le conflit avec invoice.paid VIP
+                        // Customer ID et subscription ID Robot séparés pour éviter le conflit avec invoice.paid VIP
                         updateData.stripeRobotCustomerId = customerId;
+                        updateData.stripeRobotSubscriptionId = subscriptionId;
                         delete updateData.stripeCustomerId;
                         updateData.Robot_En_cours = true;
                         updateData.robotLicenseKey = robotLicenseKey;
 
                         console.log(`Licence Robot générée pour ${email}: ${robotLicenseKey}`);
                     } else {
-                        // === VIP ===
-                        const vipLicenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
-
-                        await db.collection("licenses").add({
-                            key: vipLicenseKey,
-                            email: email || userData.email,
-                            uid: userData.uid,
-                            type: "VIP",
-                            dateCreation: admin.firestore.FieldValue.serverTimestamp(),
-                            active: true,
-                        });
-
+                        // === VIP (pas de licence, juste abonne: true) ===
                         updateData.abonne = true;
-                        updateData.vipLicenseKey = vipLicenseKey;
                         updateData.stripeSubscriptionId = subscriptionId;
                         updateData.dateAbonn = admin.firestore.FieldValue.serverTimestamp();
 
-                        console.log(`Licence VIP générée pour ${email}: ${vipLicenseKey}`);
+                        console.log(`VIP activé pour ${email}`);
                     }
 
                     // Mettre à jour le profil utilisateur
@@ -261,15 +260,32 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             case "customer.subscription.deleted": {
                 const subscription = event.data.object;
                 const customerId = subscription.customer;
-
                 const usersRef = db.collection("users");
-                const snapshot = await usersRef.where("stripeCustomerId", "==", customerId).get();
-                if (!snapshot.empty) {
-                    await snapshot.docs[0].ref.update({
-                        abonne: false,
-                        stripeSubscriptionId: null,
+
+                // Vérifier si c'est un VIP
+                const vipSnapshot = await usersRef.where("stripeCustomerId", "==", customerId).get();
+                if (!vipSnapshot.empty) {
+                    await vipSnapshot.docs[0].ref.update({ abonne: false, stripeSubscriptionId: null });
+                    console.log(`Abonnement VIP annulé pour customer: ${customerId}`);
+                    break;
+                }
+
+                // Vérifier si c'est un Robot
+                const robotSnapshot = await usersRef.where("stripeRobotCustomerId", "==", customerId).get();
+                if (!robotSnapshot.empty) {
+                    const robotUserData = robotSnapshot.docs[0].data();
+                    // Supprimer la licence Robot dans la collection licenses
+                    if (robotUserData.robotLicenseKey) {
+                        const licSnap = await db.collection("licenses").where("key", "==", robotUserData.robotLicenseKey).get();
+                        for (const doc of licSnap.docs) await doc.ref.delete();
+                    }
+                    await robotSnapshot.docs[0].ref.update({
+                        Robot_En_cours: false,
+                        robotLicenseKey: null,
+                        stripeRobotSubscriptionId: null,
+                        stripeRobotCustomerId: null,
                     });
-                    console.log(`Abonnement annulé pour customer: ${customerId}`);
+                    console.log(`Abonnement Robot annulé pour customer: ${customerId}`);
                 }
                 break;
             }
@@ -314,6 +330,31 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
         return { success: true, message: "Abonnement annulé en fin de période" };
     } catch (error) {
         console.error("Erreur annulation:", error);
+        throw new functions.https.HttpsError("internal", "Erreur lors de l'annulation");
+    }
+});
+
+// ==================== ANNULER ABONNEMENT ROBOT ====================
+
+exports.cancelRobotSubscription = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "L'utilisateur doit être authentifié");
+    }
+    const uid = context.auth.uid;
+    try {
+        const snapshot = await db.collection("users").where("uid", "==", uid).get();
+        if (snapshot.empty) throw new functions.https.HttpsError("not-found", "Utilisateur non trouvé");
+
+        const userData = snapshot.docs[0].data();
+        const subscriptionId = userData.stripeRobotSubscriptionId;
+
+        if (!subscriptionId) throw new functions.https.HttpsError("not-found", "Aucun abonnement Robot trouvé");
+
+        await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+        console.log(`Abonnement Robot ${subscriptionId} sera annulé en fin de période`);
+        return { success: true };
+    } catch (error) {
+        console.error("Erreur annulation Robot:", error);
         throw new functions.https.HttpsError("internal", "Erreur lors de l'annulation");
     }
 });

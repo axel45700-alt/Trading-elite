@@ -216,14 +216,6 @@
                 </div>
             </div>
 
-            <div id="vipLicenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
-                <div class="info-label" style="margin-bottom:0.5rem;">Clé de licence VIP</div>
-                <div style="display:flex; gap:1rem; align-items:center;">
-                    <div id="vipLicenseKeyValue" style="font-family:monospace; font-weight:700; color:var(--gold); word-break:break-all; flex:1;"></div>
-                    <button id="copyVipLicenseBtn" class="btn" style="background:var(--gold); color:#000; flex:0.3; padding:0.5rem;">Copier</button>
-                </div>
-            </div>
-
             <div class="action-section" id="actionSection">
                 <button id="paymentBtn" class="btn btn-primary">
                     Passer à l'abonnement VIP (60€)
@@ -389,8 +381,8 @@ onAuthStateChanged(auth, async (user) => {
         // ===== SECTION ROBOT =====
         if (userData.Robot_En_cours) {
             document.getElementById('robotStatutValue').innerHTML = '<span class="status-badge badge-abonne">Robot actif ✓</span>';
-            document.getElementById('robotAccesValue').textContent = 'À vie';
-            document.getElementById('robotActionSection').innerHTML = '<p style="color:var(--green);">✓ Robot déjà acheté</p>';
+            document.getElementById('robotAccesValue').textContent = 'Actif';
+            document.getElementById('robotActionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Robot actif</p><button id="cancelRobotBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
 
             if (userData.robotLicenseKey) {
                 document.getElementById('robotLicenseSection').style.display = 'block';
@@ -400,6 +392,19 @@ onAuthStateChanged(auth, async (user) => {
                     alert('Clé Robot copiée !');
                 });
             }
+
+            document.getElementById('cancelRobotBtn').addEventListener('click', async () => {
+                if (confirm('Es-tu sûr ? La licence Robot sera supprimée à la fin de la période.')) {
+                    try {
+                        const cancelRobotSubscription = httpsCallable(functions, 'cancelRobotSubscription');
+                        await cancelRobotSubscription();
+                        alert('Abonnement Robot annulé en fin de période.');
+                        location.reload();
+                    } catch (error) {
+                        alert('Erreur: ' + error.message);
+                    }
+                }
+            });
         } else {
             document.getElementById('robotAccesValue').textContent = 'Non acheté';
             const robotPaymentBtn = document.getElementById('robotPaymentBtn');
