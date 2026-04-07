@@ -200,8 +200,9 @@
             </div>
         </div>
 
+        <!-- Card VIP -->
         <div class="card">
-            <h2 style="margin-bottom:1.5rem;">Mon abonnement</h2>
+            <h2 style="margin-bottom:1.5rem;">Abonnement VIP</h2>
             <div class="info-grid">
                 <div class="info-item">
                     <div class="info-label">Statut</div>
@@ -223,6 +224,29 @@
                 </div>
             </div>
 
+            <div class="action-section" id="actionSection">
+                <button id="paymentBtn" class="btn btn-primary">
+                    Passer à l'abonnement VIP (60€)
+                </button>
+            </div>
+        </div>
+
+        <!-- Card Robot -->
+        <div class="card">
+            <h2 style="margin-bottom:1.5rem;">Robot de Trading</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Statut</div>
+                    <div id="robotStatutValue">
+                        <span class="status-badge badge-expire">Non activé</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Accès</div>
+                    <div class="info-value" id="robotAccesValue">-</div>
+                </div>
+            </div>
+
             <div id="robotLicenseSection" style="display:none; background:rgba(226,185,59,0.1); border:1px solid var(--gold); padding:1.5rem; border-radius:10px; margin-top:1.5rem;">
                 <div class="info-label" style="margin-bottom:0.5rem;">Clé de licence Robot</div>
                 <div style="display:flex; gap:1rem; align-items:center;">
@@ -231,9 +255,9 @@
                 </div>
             </div>
 
-            <div class="action-section" id="actionSection">
-                <button id="paymentBtn" class="btn btn-primary">
-                    Passer à l'abonnement VIP (60€)
+            <div class="action-section" id="robotActionSection">
+                <button id="robotPaymentBtn" class="btn btn-primary">
+                    Acheter le Robot (60€)
                 </button>
             </div>
         </div>
@@ -325,29 +349,18 @@ onAuthStateChanged(auth, async (user) => {
             }
         });
 
-        // Vérifier le statut : abonné en priorité, puis semaine gratuite
+        // ===== SECTION VIP =====
         if (userData.abonne) {
-            document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-abonne">Abonné VIP</span>';
+            document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-abonne">Abonné VIP ✓</span>';
             document.getElementById('joursRestants').textContent = '∞';
-            document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Ton abonnement est actif !</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
+            document.getElementById('actionSection').innerHTML = '<p style="color:var(--green); flex:1;">✓ Abonnement actif</p><button id="unsubscribeBtn" class="btn" style="background:var(--red); color:white; flex:0.5;">Se désabonner</button>';
 
-            // Afficher la clé VIP si elle existe
             if (userData.vipLicenseKey) {
                 document.getElementById('vipLicenseSection').style.display = 'block';
                 document.getElementById('vipLicenseKeyValue').textContent = userData.vipLicenseKey;
                 document.getElementById('copyVipLicenseBtn').addEventListener('click', () => {
                     navigator.clipboard.writeText(userData.vipLicenseKey);
                     alert('Clé VIP copiée !');
-                });
-            }
-
-            // Afficher la clé Robot si elle existe
-            if (userData.robotLicenseKey) {
-                document.getElementById('robotLicenseSection').style.display = 'block';
-                document.getElementById('robotLicenseKeyValue').textContent = userData.robotLicenseKey;
-                document.getElementById('copyRobotLicenseBtn').addEventListener('click', () => {
-                    navigator.clipboard.writeText(userData.robotLicenseKey);
-                    alert('Clé Robot copiée !');
                 });
             }
 
@@ -367,12 +380,34 @@ onAuthStateChanged(auth, async (user) => {
             const dateCreation = userData.dateSemaineGratuite.toDate ? userData.dateSemaineGratuite.toDate() : new Date(userData.dateSemaineGratuite);
             const joursEcoules = Math.floor((new Date() - dateCreation) / (1000 * 60 * 60 * 24));
             const joursRestants = Math.max(0, 7 - joursEcoules);
-
             document.getElementById('joursRestants').textContent = joursRestants + ' jour(s)';
-
             if (joursRestants === 0) {
                 document.getElementById('statutValue').innerHTML = '<span class="status-badge badge-expire">Semaine gratuite expirée</span>';
             }
+        }
+
+        // ===== SECTION ROBOT =====
+        if (userData.Robot_En_cours) {
+            document.getElementById('robotStatutValue').innerHTML = '<span class="status-badge badge-abonne">Robot actif ✓</span>';
+            document.getElementById('robotAccesValue').textContent = 'À vie';
+            document.getElementById('robotActionSection').innerHTML = '<p style="color:var(--green);">✓ Robot déjà acheté</p>';
+
+            if (userData.robotLicenseKey) {
+                document.getElementById('robotLicenseSection').style.display = 'block';
+                document.getElementById('robotLicenseKeyValue').textContent = userData.robotLicenseKey;
+                document.getElementById('copyRobotLicenseBtn').addEventListener('click', () => {
+                    navigator.clipboard.writeText(userData.robotLicenseKey);
+                    alert('Clé Robot copiée !');
+                });
+            }
+        } else {
+            document.getElementById('robotAccesValue').textContent = 'Non acheté';
+            const robotPaymentBtn = document.getElementById('robotPaymentBtn');
+            robotPaymentBtn.addEventListener('click', () => {
+                const email = user.email;
+                const robotLink = `https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01?prefilled_email=${encodeURIComponent(email)}`;
+                window.location.href = robotLink;
+            });
         }
 
         loadingMsg.style.display = 'none';

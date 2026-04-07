@@ -76,15 +76,26 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
 
-    try {
-        event = stripe.webhooks.constructEvent(
-            req.rawBody,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
-    } catch (err) {
-        console.error("Webhook signature verification failed:", err.message);
-        res.status(400).send(`Webhook Error: ${err.message}`);
+    // Essayer les deux secrets (VIP webhook et Robot webhook)
+    const secrets = [
+        process.env.STRIPE_WEBHOOK_SECRET,
+        process.env.STRIPE_WEBHOOK_SECRET_ROBOT,
+    ].filter(Boolean);
+
+    let verified = false;
+    for (const secret of secrets) {
+        try {
+            event = stripe.webhooks.constructEvent(req.rawBody, sig, secret);
+            verified = true;
+            break;
+        } catch (err) {
+            // Essayer le prochain secret
+        }
+    }
+
+    if (!verified) {
+        console.error("Webhook signature verification failed for all secrets");
+        res.status(400).send("Webhook Error: Invalid signature");
         return;
     }
 
@@ -94,7 +105,8 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
             case "checkout.session.completed": {
                 const session = event.data.object;
                 const uid = session.metadata?.uid;
-                const email = session.customer_email;
+                // Payment Link met l'email dans customer_details.email, pas customer_email
+                const email = session.customer_email || session.customer_details?.email;
                 const subscriptionId = session.subscription;
                 const customerId = session.customer;
 
@@ -118,54 +130,50 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                 }
 
                 if (userRef && userData) {
-                    // Récupérer le product_id depuis line_items
-                    const lineItems = session.line_items?.data || [];
-                    const product_id = lineItems.length > 0 ? lineItems[0].price?.product : null;
-
                     const updateData = {
-                        stripeSubscriptionId: subscriptionId,
                         stripeCustomerId: customerId,
                     };
 
-                    // Robot product
-                    if (product_id === "prod_UGc2G9j3E9Snmx") {
-                        // Générer une clé de licence unique pour Robot
+                    // Si uid présent en metadata → VIP (createCheckoutSession)
+                    // Sinon → Robot (Payment Link, pas de uid en metadata)
+                    const isVIP = !!uid;
+
+                    if (!isVIP) {
+                        // === ROBOT ===
                         const robotLicenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
-                        // Ajouter la licence Robot dans Firestore
                         await db.collection("licenses").add({
                             key: robotLicenseKey,
-                            email: email,
+                            email: email || userData.email,
                             uid: userData.uid,
                             type: "Robot",
                             dateCreation: admin.firestore.FieldValue.serverTimestamp(),
                             active: true,
                         });
 
-                        // Ajouter les propriétés spécifiques au Robot
+                        // Stocker le customer ID Robot séparément pour éviter le conflit avec invoice.paid VIP
+                        updateData.stripeRobotCustomerId = customerId;
+                        delete updateData.stripeCustomerId;
                         updateData.Robot_En_cours = true;
                         updateData.robotLicenseKey = robotLicenseKey;
 
                         console.log(`Licence Robot générée pour ${email}: ${robotLicenseKey}`);
-                    }
-                    // VIP product
-                    else if (product_id === process.env.STRIPE_PRODUCT_ID) {
-                        // Générer une clé de licence unique pour VIP
+                    } else {
+                        // === VIP ===
                         const vipLicenseKey = `ELT-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
-                        // Ajouter la licence VIP dans Firestore
                         await db.collection("licenses").add({
                             key: vipLicenseKey,
-                            email: email,
+                            email: email || userData.email,
                             uid: userData.uid,
                             type: "VIP",
                             dateCreation: admin.firestore.FieldValue.serverTimestamp(),
                             active: true,
                         });
 
-                        // Ajouter les propriétés spécifiques au VIP (pas de Robot_En_cours)
                         updateData.abonne = true;
                         updateData.vipLicenseKey = vipLicenseKey;
+                        updateData.stripeSubscriptionId = subscriptionId;
                         updateData.dateAbonn = admin.firestore.FieldValue.serverTimestamp();
 
                         console.log(`Licence VIP générée pour ${email}: ${vipLicenseKey}`);
@@ -173,10 +181,10 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 
                     // Mettre à jour le profil utilisateur
                     await userRef.update(updateData);
-                    console.log(`Abonnement activé pour ${email}`);
+                    console.log(`Paiement traité pour ${email || userData.email}`);
 
-                    // Appliquer la réduction au parrain si ce filleul a un parrain (seulement pour VIP)
-                    if (product_id === process.env.STRIPE_PRODUCT_ID) {
+                    // Appliquer la réduction au parrain (seulement pour VIP)
+                    if (isVIP) {
                         const parrainTel = userData.parrain;
                         if (parrainTel) {
                             const parrainSnapshot = await usersRef.where("telephone", "==", parrainTel).get();
