@@ -1,12 +1,43 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const Stripe = require("stripe");
+const https = require("https");
 
 admin.initializeApp();
 const db = admin.firestore();
 
 // Initialiser Stripe une seule fois
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// ==================== TELEGRAM ====================
+
+function createTelegramInviteLink() {
+    return new Promise((resolve, reject) => {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = process.env.TELEGRAM_GROUP_ID;
+        const body = JSON.stringify({ chat_id: chatId, member_limit: 1 });
+
+        const options = {
+            hostname: "api.telegram.org",
+            path: `/bot${token}/createChatInviteLink`,
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = "";
+            res.on("data", chunk => data += chunk);
+            res.on("end", () => {
+                const json = JSON.parse(data);
+                if (json.ok) resolve(json.result.invite_link);
+                else reject(new Error(json.description));
+            });
+        });
+        req.on("error", reject);
+        req.write(body);
+        req.end();
+    });
+}
 
 // ==================== STRIPE CHECKOUT ====================
 
@@ -170,10 +201,19 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 
                         console.log(`Licence Robot générée pour ${email}: ${robotLicenseKey}`);
                     } else {
-                        // === VIP (pas de licence, juste abonne: true) ===
+                        // === VIP ===
                         updateData.abonne = true;
                         updateData.stripeSubscriptionId = subscriptionId;
                         updateData.dateAbonn = admin.firestore.FieldValue.serverTimestamp();
+
+                        // Générer un lien Telegram unique à usage unique
+                        try {
+                            const inviteLink = await createTelegramInviteLink();
+                            updateData.telegramInviteLink = inviteLink;
+                            console.log(`Lien Telegram généré pour ${email}: ${inviteLink}`);
+                        } catch (e) {
+                            console.error("Erreur génération lien Telegram:", e.message);
+                        }
 
                         console.log(`VIP activé pour ${email}`);
                     }

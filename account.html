@@ -356,6 +356,18 @@ onAuthStateChanged(auth, async (user) => {
                 });
             }
 
+            // Afficher le lien Telegram si disponible
+            if (userData.telegramInviteLink) {
+                const telegramDiv = document.createElement('div');
+                telegramDiv.style = 'background:rgba(39,174,96,0.1); border:1px solid var(--green); padding:1.5rem; border-radius:10px; margin-top:1.5rem;';
+                telegramDiv.innerHTML = `
+                    <div class="info-label" style="margin-bottom:0.5rem;">Groupe Telegram VIP</div>
+                    <a href="${userData.telegramInviteLink}" target="_blank" class="btn btn-primary" style="display:inline-block; text-decoration:none; padding:0.7rem 1.5rem;">
+                        Rejoindre le groupe Telegram →
+                    </a>`;
+                document.getElementById('vipLicenseSection').parentNode.insertBefore(telegramDiv, document.getElementById('actionSection'));
+            }
+
             document.getElementById('unsubscribeBtn').addEventListener('click', async () => {
                 if (confirm('Es-tu sûr de vouloir te désabonner ? Ton abonnement restera actif jusqu\'à la fin de la période en cours.')) {
                     try {
