@@ -11,34 +11,40 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ==================== TELEGRAM ====================
 
-function createTelegramInviteLink() {
+function getTelegramInviteLink(uid, email) {
     return new Promise((resolve, reject) => {
-        const token = process.env.TELEGRAM_BOT_TOKEN;
-        const chatId = process.env.TELEGRAM_GROUP_ID;
-        const body = JSON.stringify({ chat_id: chatId, member_limit: 1 });
+        const token = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+        const chatId = (process.env.TELEGRAM_GROUP_ID || "").trim();
+        console.log("Telegram token prefix:", token.substring(0, 10));
+        console.log("Telegram chatId:", chatId);
 
         const options = {
             hostname: "api.telegram.org",
-            path: `/bot${token}/createChatInviteLink`,
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
+            path: `/bot${token}/getMe`,
+            method: "GET"
         };
 
         const req = https.request(options, (res) => {
             let data = "";
             res.on("data", chunk => data += chunk);
             res.on("end", () => {
-                const json = JSON.parse(data);
-                if (json.ok) resolve(json.result.invite_link);
-                else reject(new Error(json.description));
+                console.log("Telegram status:", res.statusCode);
+                console.log("Telegram raw response:", data);
+
+                try {
+                    const json = JSON.parse(data);
+                    if (json.ok) resolve("ok");
+                    else reject(new Error(json.description || data));
+                } catch (err) {
+                    reject(new Error(data));
+                }
             });
         });
+
         req.on("error", reject);
-        req.write(body);
         req.end();
     });
 }
-
 // ==================== STRIPE CHECKOUT ====================
 
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
@@ -206,13 +212,13 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
                         updateData.stripeSubscriptionId = subscriptionId;
                         updateData.dateAbonn = admin.firestore.FieldValue.serverTimestamp();
 
-                        // Générer un lien Telegram unique à usage unique
+                        // Récupérer le lien Telegram du canal
                         try {
-                            const inviteLink = await createTelegramInviteLink();
+                           const inviteLink = await getTelegramInviteLink(uid, email || userData.email);
                             updateData.telegramInviteLink = inviteLink;
-                            console.log(`Lien Telegram généré pour ${email}: ${inviteLink}`);
+                            console.log(`Lien Telegram récupéré pour ${email}: ${inviteLink}`);
                         } catch (e) {
-                            console.error("Erreur génération lien Telegram:", e.message);
+                            console.error("Erreur récupération lien Telegram:", e.message);
                         }
 
                         console.log(`VIP activé pour ${email}`);
