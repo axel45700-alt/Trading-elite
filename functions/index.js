@@ -11,16 +11,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ==================== TELEGRAM ====================
 
-function getTelegramInviteLink(uid, email) {
+function getTelegramInviteLink() {
     return new Promise((resolve, reject) => {
         const token = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
         const chatId = (process.env.TELEGRAM_GROUP_ID || "").trim();
-        console.log("Telegram token prefix:", token.substring(0, 10));
-        console.log("Telegram chatId:", chatId);
 
         const options = {
             hostname: "api.telegram.org",
-            path: `/bot${token}/getMe`,
+            path: `/bot${token}/exportChatInviteLink?chat_id=${chatId}`,
             method: "GET"
         };
 
@@ -28,13 +26,15 @@ function getTelegramInviteLink(uid, email) {
             let data = "";
             res.on("data", chunk => data += chunk);
             res.on("end", () => {
-                console.log("Telegram status:", res.statusCode);
-                console.log("Telegram raw response:", data);
-
                 try {
                     const json = JSON.parse(data);
-                    if (json.ok) resolve("ok");
-                    else reject(new Error(json.description || data));
+                    if (json.ok && typeof json.result === "string") {
+                        console.log(`[TELEGRAM] Lien invite: ${json.result}`);
+                        resolve(json.result);
+                    } else {
+                        console.error("[TELEGRAM] Erreur:", json.description || json);
+                        reject(new Error(json.description || "Lien introuvable"));
+                    }
                 } catch (err) {
                     reject(new Error(data));
                 }
@@ -584,18 +584,4 @@ exports.deactivateKey = functions.https.onRequest(async (req, res) => {
 
     try {
         const sessionsRef = db.collection("sessions");
-        const snapshot = await sessionsRef
-            .where("sessionId", "==", sessionId)
-            .where("key", "==", key)
-            .get();
-
-        if (!snapshot.empty) {
-            await snapshot.docs[0].ref.delete();
-        }
-
-        res.json({ deactivated: true });
-    } catch (error) {
-        console.error("Erreur deactivateKey:", error);
-        res.status(500).json({ deactivated: false });
-    }
-});
+        cons
