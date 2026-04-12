@@ -319,8 +319,8 @@ onAuthStateChanged(auth, async (user) => {
 
         // Calculer et afficher le prix dynamique
         const nombre_Filleul = userData.nombre_Filleul || 0;
-        const reduction = Math.min(nombre_Filleul, 4) * 15;
-        const prixFinal = Math.max(0, 60 - reduction);
+        const reduction = Math.min(nombre_Filleul, 5) * 16;
+        const prixFinal = Math.max(0, 78 - reduction);
 
         // Bouton de paiement
         const paymentBtn = document.getElementById('paymentBtn');

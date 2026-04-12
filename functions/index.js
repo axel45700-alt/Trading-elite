@@ -29,7 +29,7 @@ function getTelegramInviteLink() {
                 try {
                     const json = JSON.parse(data);
                     if (json.ok && typeof json.result === "string") {
-                        console.log(`[TELEGRAM] Lien invite: ${json.result}`);
+                        console.log(`[TELEGRAM] Lien: ${json.result}`);
                         resolve(json.result);
                     } else {
                         console.error("[TELEGRAM] Erreur:", json.description || json);
@@ -45,6 +45,8 @@ function getTelegramInviteLink() {
         req.end();
     });
 }
+
+// Force redeploy - v2
 // ==================== STRIPE CHECKOUT ====================
 
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
@@ -66,9 +68,9 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
         const nombre_Filleul = userData.nombre_Filleul || 0;
         const email = userData.email;
 
-        // Calculer le prix : 60€ - (15€ * nombre_Filleul), max 4 filleuls
-        const reduction = Math.min(nombre_Filleul, 4) * 15;
-        const prixFinal = Math.max(0, 60 - reduction);
+        // Calculer le prix : 78€ - (16€ * nombre_Filleul), max 5 filleuls
+        const reduction = Math.min(nombre_Filleul, 5) * 16;
+        const prixFinal = Math.max(0, 78 - reduction);
 
         // Créer ou récupérer le customer Stripe
         let customerId = userData.stripeCustomerId;
@@ -214,7 +216,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 
                         // Récupérer le lien Telegram du canal
                         try {
-                           const inviteLink = await getTelegramInviteLink(uid, email || userData.email);
+                            const inviteLink = await getTelegramInviteLink();
                             updateData.telegramInviteLink = inviteLink;
                             console.log(`Lien Telegram récupéré pour ${email}: ${inviteLink}`);
                         } catch (e) {
@@ -440,8 +442,8 @@ exports.updateSubscriptionPrice = functions.https.onRequest(async (req, res) => 
 
         // Calculer le nouveau prix
         const nombre_Filleul = parrainData.nombre_Filleul || 0;
-        const reduction = Math.min(nombre_Filleul, 4) * 15;
-        const nouveauPrix = Math.max(0, 60 - reduction);
+        const reduction = Math.min(nombre_Filleul, 5) * 16;
+        const nouveauPrix = Math.max(0, 78 - reduction);
 
         // Récupérer l'abonnement actuel
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -584,4 +586,18 @@ exports.deactivateKey = functions.https.onRequest(async (req, res) => {
 
     try {
         const sessionsRef = db.collection("sessions");
-        cons
+        const snapshot = await sessionsRef
+            .where("sessionId", "==", sessionId)
+            .where("key", "==", key)
+            .get();
+
+        if (!snapshot.empty) {
+            await snapshot.docs[0].ref.delete();
+        }
+
+        res.json({ deactivated: true });
+    } catch (error) {
+        console.error("Erreur deactivateKey:", error);
+        res.status(500).json({ deactivated: false });
+    }
+});
