@@ -433,9 +433,13 @@
             const userDocSnap = await getDoc(userDocRef);
             const userData = userDocSnap.exists() ? userDocSnap.data() : {};
 
+            console.log('User ID:', user.uid);
+            console.log('User data:', userData);
+            console.log('robotTestGratuit:', userData.robotTestGratuit);
+
             // Configurer le bouton de paiement robot
             if (robotPayBtn) {
-                if (userData.robotTestGratuit) {
+                if (userData.robotTestGratuit === true) {
                     // Mode test gratuit
                     robotPayBtn.textContent = 'Activer le Robot (TEST)';
                     robotPayBtn.onclick = async (e) => {
