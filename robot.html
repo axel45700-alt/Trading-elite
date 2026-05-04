@@ -396,6 +396,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
@@ -408,18 +409,62 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db = getFirestore(app);
     const authLink = document.getElementById('authLink');
+    const robotPayBtn = document.getElementById('robotPayBtn');
+
+    function generateLicenseKey() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let key = '';
+        for (let i = 0; i < 5; i++) {
+            key += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const timestamp = Date.now();
+        return `ELT-${key}-${timestamp}`;
+    }
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             authLink.textContent = 'Mon profil';
             authLink.href = 'account.html';
 
-            // Mettre à jour le lien de paiement robot avec l'email
-            const robotPayBtn = document.getElementById('robotPayBtn');
+            // Charger les données utilisateur
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const userData = userDocSnap.exists() ? userDocSnap.data() : {};
+
+            // Configurer le bouton de paiement robot
             if (robotPayBtn) {
-                const baseUrl = 'https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01';
-                robotPayBtn.href = `${baseUrl}?prefilled_email=${encodeURIComponent(user.email)}`;
+                if (userData.robotTestGratuit) {
+                    // Mode test gratuit
+                    robotPayBtn.textContent = 'Activer le Robot (TEST)';
+                    robotPayBtn.onclick = async (e) => {
+                        e.preventDefault();
+                        robotPayBtn.disabled = true;
+                        robotPayBtn.textContent = 'Activation...';
+
+                        try {
+                            const licenseKey = generateLicenseKey();
+                            await setDoc(doc(db, 'licenses', user.uid), {
+                                uid: user.uid,
+                                licenseKey: licenseKey,
+                                type: 'robot',
+                                createdAt: new Date(),
+                                Robot_En_cours: true,
+                                email: user.email
+                            });
+                            window.location.href = 'account.html';
+                        } catch (err) {
+                            console.error('Erreur:', err);
+                            robotPayBtn.disabled = false;
+                            robotPayBtn.textContent = 'Erreur - Réessayer';
+                        }
+                    };
+                } else {
+                    // Mode Stripe normal
+                    const baseUrl = 'https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01';
+                    robotPayBtn.href = `${baseUrl}?prefilled_email=${encodeURIComponent(user.email)}`;
+                }
             }
         } else {
             authLink.textContent = 'Creer un compte';
