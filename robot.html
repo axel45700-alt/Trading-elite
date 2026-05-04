@@ -397,6 +397,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-functions.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCdj78TKok5MVcUT5WtqCfCV_kZR7SJWxY",
@@ -410,18 +411,10 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const functions = getFunctions(app);
+    const createRobotCheckoutSession = httpsCallable(functions, 'createRobotCheckoutSession');
     const authLink = document.getElementById('authLink');
     const robotPayBtn = document.getElementById('robotPayBtn');
-
-    function generateLicenseKey() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let key = '';
-        for (let i = 0; i < 5; i++) {
-            key += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const timestamp = Date.now();
-        return `ELT-${key}-${timestamp}`;
-    }
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -433,41 +426,32 @@
             const userDocSnap = await getDoc(userDocRef);
             const userData = userDocSnap.exists() ? userDocSnap.data() : {};
 
-            console.log('User ID:', user.uid);
-            console.log('User data:', userData);
-            console.log('robotTestGratuit:', userData.robotTestGratuit);
-
             // Configurer le bouton de paiement robot
             if (robotPayBtn) {
-                if (userData.robotTestGratuit === true) {
-                    // Mode test gratuit
-                    robotPayBtn.textContent = 'Activer le Robot (TEST)';
-                    robotPayBtn.onclick = async (e) => {
-                        e.preventDefault();
-                        robotPayBtn.disabled = true;
-                        robotPayBtn.textContent = 'Activation...';
+                robotPayBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    robotPayBtn.disabled = true;
+                    robotPayBtn.textContent = 'Chargement...';
 
-                        try {
-                            const licenseKey = generateLicenseKey();
-                            await setDoc(doc(db, 'licenses', user.uid), {
-                                uid: user.uid,
-                                licenseKey: licenseKey,
-                                type: 'robot',
-                                createdAt: new Date(),
-                                Robot_En_cours: true,
-                                email: user.email
-                            });
-                            window.location.href = 'account.html';
-                        } catch (err) {
-                            console.error('Erreur:', err);
-                            robotPayBtn.disabled = false;
-                            robotPayBtn.textContent = 'Erreur - Réessayer';
-                        }
-                    };
-                } else {
-                    // Mode Stripe normal
-                    const baseUrl = 'https://buy.stripe.com/test_4gM6oHdyl0FX5W1g9ngIo01';
-                    robotPayBtn.href = `${baseUrl}?prefilled_email=${encodeURIComponent(user.email)}`;
+                    try {
+                        const result = await createRobotCheckoutSession();
+                        window.location.href = result.data.url;
+                    } catch (err) {
+                        console.error('Erreur Stripe:', err);
+                        robotPayBtn.disabled = false;
+                        robotPayBtn.textContent = 'Erreur - Réessayer';
+                    }
+                };
+
+                // Afficher le prix basé sur les filleuls
+                const nombre_Filleul = userData.nombre_Filleul || 0;
+                const reduction = Math.min(nombre_Filleul, 5) * 16;
+                const prixFinal = Math.max(0, 60 - reduction);
+
+                // Mettre à jour le prix dans la page
+                const priceAmount = document.querySelector('.price-box .amount');
+                if (priceAmount && prixFinal !== 60) {
+                    priceAmount.textContent = prixFinal + '€';
                 }
             }
         } else {

@@ -109,6 +109,67 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     }
 });
 
+// ==================== ROBOT CHECKOUT (avec prix dynamique) ====================
+
+exports.createRobotCheckoutSession = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "L'utilisateur doit être authentifié");
+    }
+
+    const uid = context.auth.uid;
+
+    try {
+        const usersRef = db.collection("users");
+        const snapshot = await usersRef.where("uid", "==", uid).get();
+
+        if (snapshot.empty) {
+            throw new functions.https.HttpsError("not-found", "Utilisateur non trouvé");
+        }
+
+        const userData = snapshot.data();
+        const nombre_Filleul = userData.nombre_Filleul || 0;
+        const email = userData.email;
+
+        // Calculer le prix Robot : 60€ - (16€ * nombre_Filleul), max 5 filleuls
+        const reduction = Math.min(nombre_Filleul, 5) * 16;
+        const prixFinal = Math.max(0, 60 - reduction);
+
+        // Créer ou récupérer le customer Stripe pour Robot
+        let customerId = userData.stripeRobotCustomerId;
+        if (!customerId) {
+            const customer = await stripe.customers.create({ email: email });
+            customerId = customer.id;
+            await snapshot.docs[0].ref.update({ stripeRobotCustomerId: customerId });
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            mode: "payment",
+            customer: customerId,
+            line_items: [
+                {
+                    price_data: {
+                        currency: "eur",
+                        product: process.env.STRIPE_PRODUCT_ID_ROBOT,
+                        unit_amount: Math.round(prixFinal * 100),
+                    },
+                    quantity: 1,
+                },
+            ],
+            success_url: "https://trading-elite.firebaseapp.com/account.html?payment=success",
+            cancel_url: "https://trading-elite.firebaseapp.com/account.html?payment=cancelled",
+            metadata: {
+                type: "robot",
+            },
+        });
+
+        return { sessionId: session.id, url: session.url };
+    } catch (error) {
+        console.error("Erreur Stripe Robot:", error);
+        throw new functions.https.HttpsError("internal", "Erreur lors de la création de la session de paiement Robot");
+    }
+});
+
 // ==================== STRIPE WEBHOOK ====================
 
 exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
